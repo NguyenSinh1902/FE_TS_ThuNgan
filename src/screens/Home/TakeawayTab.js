@@ -1,210 +1,163 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { ShoppingBag, Clock } from 'lucide-react-native';
 import invoiceApi from '../../api/invoiceApi';
 import styles from './TakeawayTab.styles';
 
-const getStatusConfig = (status) => {
-  switch(status) {
-    case 'CONFIRMING': return {
-      borderColor: '#3B82F6',
-      badgeBg: '#DBEAFE',
-      badgeTextCol: '#2563EB',
-      badgeText: 'Chờ xác nhận',
-      primaryBtnBg: '#3B82F6',
-      primaryBtnText: 'Xác nhận'
+const DurationTimer = React.memo(({ startTime, isRed }) => {
+  const [duration, setDuration] = useState('');
+
+  useEffect(() => {
+    if (!startTime) return;
+    const start = new Date(startTime).getTime();
+
+    const update = () => {
+      const now = Date.now();
+      const diff = Math.max(0, now - start);
+      const hours = Math.floor(diff / 3600000).toString().padStart(2, '0');
+      const mins = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+      const secs = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+      setDuration(`${hours}:${mins}:${secs}`);
     };
-    case 'PREPARING': return {
-      borderColor: 'rgba(139, 163, 103, 0.30)',
-      badgeBg: 'rgba(139, 163, 103, 0.10)',
-      badgeTextCol: '#8BA367',
-      badgeText: 'Đang pha chế',
-      primaryBtnBg: '#FF6900',
-      primaryBtnText: 'Xong món'
-    };
-    case 'WAIT_PICKUP': return {
-      borderColor: '#FF8904',
-      badgeBg: '#FFEDD4',
-      badgeTextCol: '#F54900',
-      badgeText: 'Chờ lấy món',
-      primaryBtnBg: '#FE9A00',
-      primaryBtnText: 'Đã giao'
-    };
-    case 'WAIT_PAY': return {
-      borderColor: '#FFB900',
-      badgeBg: '#FEF3C6',
-      badgeTextCol: '#E17100',
-      badgeText: 'Chờ thanh toán',
-      primaryBtnBg: '#8BA367',
-      primaryBtnText: 'Thanh toán'
-    };
-    case 'PAID': return {
-      borderColor: 'rgba(139, 163, 103, 0.40)',
-      badgeBg: 'rgba(139, 163, 103, 0.12)',
-      badgeTextCol: '#5A8040',
-      badgeText: 'Đã thanh toán',
-      primaryBtnBg: '#5A8040',
-      primaryBtnText: '✅ Hoàn tất'
-    };
-    case 'DONE': return {
-      borderColor: '#D1D5DB',
-      badgeBg: '#F3F4F6',
-      badgeTextCol: '#6B7280',
-      badgeText: 'Hoàn tất',
-      primaryBtnBg: '#64748B',
-      primaryBtnText: '🧾 Xem HĐ'
-    };
-    case 'CANCELLED': return {
-      borderColor: '#FECACA',
-      badgeBg: '#FFE2E2',
-      badgeTextCol: '#E7000B',
-      badgeText: 'Đã hủy',
-      primaryBtnBg: '#9CA3AF',
-      primaryBtnText: '🗑️ Đã hủy'
-    };
-    default: return {
-      borderColor: '#ccc',
-      badgeBg: '#eee',
-      badgeTextCol: '#333',
-      badgeText: 'Không rõ',
-      primaryBtnBg: '#8BA367',
-      primaryBtnText: 'Thao tác'
-    };
-  }
-};
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  return <Text style={[styles.timeTextObj, isRed && { color: '#D32F2F' }]}>{duration}</Text>;
+});
 
 const TakeawayTab = ({ onNavigate }) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     try {
-      setLoading(true);
       const res = await invoiceApi.getInvoicesByType('MANG_VE');
-      const apiData = Array.isArray(res) ? res : [];
-      
-      const mapped = apiData.map(inv => {
-        let internalStatus = 'PREPARING';
-        switch (inv.trangThai) {
-          case 'CHO_XAC_NHAN':   internalStatus = 'CONFIRMING';  break;
-          case 'DANG_PHA_CHE':   internalStatus = 'PREPARING';   break;
-          case 'CHO_LAY_MON':    internalStatus = 'WAIT_PICKUP'; break;
-          case 'DANG_PHUC_VU':   internalStatus = 'WAIT_PICKUP'; break;
-          case 'CHO_THANH_TOAN': internalStatus = 'WAIT_PAY';    break;
-          case 'DA_THANH_TOAN':  internalStatus = 'PAID';        break;
-          case 'HOAN_TAT':       internalStatus = 'DONE';        break;
-          case 'DA_HUY':         internalStatus = 'CANCELLED';   break;
-          default:               internalStatus = 'PREPARING';
-        }
-
-        const totalItems = inv.danhSachChiTiet ? inv.danhSachChiTiet.reduce((sum, item) => sum + item.soLuong, 0) : 0;
-        const mins = Math.floor((new Date() - new Date(inv.thoiGianTao)) / 60000);
-        
-        return {
-          id: inv.idHoaDon.toString(),
-          orderId: `#TO00${inv.idHoaDon}`,
-          customerName: inv.tenKhachHang || 'Khách vãng lai',
-          waitTime: mins > 0 ? `${mins} phút` : 'Vừa xong',
-          items: `${totalItems} món`,
-          status: internalStatus,
-          originalStatus: inv.trangThai
-        };
-      });
-      setData(mapped);
+      if (Array.isArray(res)) {
+        // Chỉ ẩn khi đơn đã Hoàn tất
+        const filtered = res.filter(item => item.trangThai !== 'HOAN_TAT');
+        setData(filtered);
+      }
     } catch (error) {
-      console.error('Fetch Takeaway failed:', error);
+      console.error('Fetch takeaway failed:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
   };
 
+  const getBadgeConfig = (status) => {
+    if (status === 'CHO_THANH_TOAN') return { label: 'Chờ thanh toán', bg: '#FF3D00', text: '#FFFFFF', border: '#FF3D00' };
+    if (status === 'CHO_LAY_MON') return { label: 'Chờ lên món', bg: '#FF9800', text: '#FFFFFF', border: '#FF9800' };
+    if (status === 'DANG_PHA_CHE') return { label: 'Đang pha chế', bg: '#2196F3', text: '#FFFFFF', border: '#2196F3' };
+    if (status === 'CHO_XAC_NHAN') return { label: 'Chờ xác nhận', bg: '#FFFFFF', text: '#1E293B', border: '#94A3B8' };
+    if (status === 'DA_THANH_TOAN') return { label: 'Đã thanh toán', bg: '#4CAF50', text: '#FFFFFF', border: '#388E3C' };
+    if (status === 'DA_HUY') return { label: 'Đã hủy', bg: '#9E9E9E', text: '#FFFFFF', border: '#9E9E9E' };
+    return { label: status || 'Không rõ', bg: '#F1F5F9', text: '#475569', border: '#CBD5E1' };
+  };
+
   const renderCard = ({ item }) => {
-    const config = getStatusConfig(item.status);
+    const isReady = item.trangThai === 'CHO_LAY_MON';
+    const invoiceNum = item.maHoaDon || `#${item.idHoaDon}`;
+    const badge = getBadgeConfig(item.trangThai);
+
+    // Viền + Đổ bóng theo màu Trạng thái
+    const cardGlowStyle = {
+      shadowColor: badge.border,
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    };
+    const cardBorderStyle = {
+      borderColor: badge.border,
+      borderWidth: 2,
+    };
 
     return (
-      <View style={[styles.card, { borderColor: config.borderColor }]}>
-        <View style={styles.cardInner}>
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={styles.orderId}>{item.orderId}</Text>
-              <Text style={styles.customerName}>{item.customerName}</Text>
-            </View>
-            <View style={styles.statusBadgeWrap}>
-              {/* Optional indicator icon can go here */}
-              <View style={[styles.statusBadge, { backgroundColor: config.badgeBg }]}>
-                <Text style={[styles.statusText, { color: config.badgeTextCol }]}>{config.badgeText}</Text>
-              </View>
+      <View style={[styles.cardWrapper, cardGlowStyle]}>
+        <LinearGradient colors={['#E8F5E9', '#FFFFFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.cardGradientContent, cardBorderStyle]}>
+
+          {/* Hàng 1: ID Đơn + Tag inline (Gọn gàng) */}
+          <View style={styles.headerRowObj}>
+            <Text style={styles.orderIdText} numberOfLines={1}>Đơn {invoiceNum}</Text>
+            <View style={[styles.badgeInline, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.badgeTextInline, { color: badge.text }]}>{badge.label}</Text>
             </View>
           </View>
 
-          <View style={styles.cardMiddle}>
-            <View style={styles.timeRow}>
-              <View style={styles.clockIconWrap}>
-                 <View style={{ width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: '#4A5565' }} />
-                 <View style={{ width: 1.5, height: 5, backgroundColor: '#4A5565', position: 'absolute', top: 3 }} />
-                 <View style={{ width: 4, height: 1.5, backgroundColor: '#4A5565', position: 'absolute', top: 7, left: 7 }} />
-              </View>
-              <Text style={styles.infoText}>{item.waitTime}</Text>
-            </View>
-            <Text style={styles.infoText}>{item.items}</Text>
+          {/* Hàng 1.5: Tên khách hàng (Nằm gọn dưới ID) */}
+          <View style={styles.customerRowObj}>
+            <Text style={styles.customerText} numberOfLines={1}>
+              {item.tenKhachHang ? item.tenKhachHang : 'Khách tại quầy'}
+            </Text>
+            {item.soDienThoai ? <Text style={styles.phoneText}>{item.soDienThoai}</Text> : null}
           </View>
 
-          <View style={styles.cardActions}>
-            <TouchableOpacity 
-              style={[styles.actionBtn, { backgroundColor: config.primaryBtnBg }]}
-              onPress={() => {}}
-            >
-              <Text style={styles.actionBtnText}>{config.primaryBtnText}</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.actionBtn, { backgroundColor: '#8BA367' }]}
-              onPress={() => onNavigate('OrderDetails', { invoiceId: item.id, orderId: item.orderId })}
-            >
-              <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                 <Path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-              <Text style={styles.actionBtnText}>Chi tiết</Text>
-            </TouchableOpacity>
+          {/* Hàng 2: Tạm tính */}
+          <View style={styles.row2}>
+            <Text style={styles.amountTextLabel}>Tạm tính: </Text>
+            <Text style={styles.amountText}>{Number(item.tongThanhToan).toLocaleString('vi-VN')}đ</Text>
           </View>
-        </View>
+
+          {/* Hàng 3: Đáy góc trái (Túi) & phải (Đồng hồ) đối trọng nhau */}
+          <View style={styles.row4}>
+            <View style={styles.infoWrap}>
+              <ShoppingBag size={18} color="#1E293B" strokeWidth={2} />
+              <Text style={styles.infoText}>Mang về</Text>
+            </View>
+            <View style={styles.infoWrap}>
+              <Clock size={16} color={isReady ? '#D32F2F' : '#1E293B'} strokeWidth={2} />
+              <DurationTimer startTime={item.thoiGianTao} isRed={isReady} />
+            </View>
+          </View>
+
+          {/* Action chạm toàn thẻ */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={0.6}
+            delayPressIn={0}
+            onPress={() => onNavigate('OrderDetails', { invoiceId: item.idHoaDon, tableName: `Mang về ${invoiceNum}` })}
+          />
+        </LinearGradient>
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* List */}
+      <View style={styles.watermarkListWrap}>
+        <Text style={styles.watermarkDelivery}>🛵</Text>
+        <Text style={styles.watermarkBag}>🛍️</Text>
+      </View>
+
       {loading && !refreshing ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#007A55" />
+          <ActivityIndicator size="large" color="#49934F" />
         </View>
       ) : (
         <FlatList
           data={data}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.idHoaDon.toString()}
           renderItem={renderCard}
+          numColumns={3}
           contentContainerStyle={styles.listContent}
+          columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#007A55']} />
-          }
-          ListHeaderComponent={
-            <Text style={{ fontSize: 20, fontWeight: '700', color: '#1E2939', marginBottom: 16 }}>
-              Đơn hàng mang về
-            </Text>
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#49934F']} />}
         />
       )}
     </View>

@@ -1,172 +1,125 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 export default StyleSheet.create({
   container: {
     flex: 1,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 24,
-  },
-  titleText: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: '#1E2939',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  notiIconWrap: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notiBadge: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FB2C36',
-    position: 'absolute',
-    top: 0,
-    right: -2,
-  },
-  avatarWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#8BA367',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  tabToggleWrap: {
-    flexDirection: 'row',
-    backgroundColor: '#ECECF0',
-    borderRadius: 24,
-    padding: 6,
-    marginHorizontal: 16,
-    marginBottom: 24,
-  },
-  tabBtn: {
-    flex: 1,
-    height: 43,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 24,
-  },
-  tabBtnActive: {
-    backgroundColor: '#8BA367',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0A0A0A',
-  },
-  tabTextActive: {
-    color: 'white',
+    paddingTop: 16,
+    paddingHorizontal: 24,
   },
   listContent: {
-    paddingTop: Platform.OS === 'ios' ? 190 : 170, // Đẩy xuống bằng với Tab 'Tại bàn'
-    paddingHorizontal: 16,
-    paddingBottom: 110, 
+    paddingBottom: 110,
   },
-  card: {
-    height: 188,
-    borderRadius: 24,
-    borderWidth: 2,
-    marginBottom: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.40)',
+  columnWrapper: {
+    justifyContent: 'flex-start',
+    gap: 20,
+    marginBottom: 20,
   },
-  cardInner: {
+  cardWrapper: {
     flex: 1,
-    padding: 22,
+    maxWidth: '32%',
+    minWidth: '32%',
+    borderRadius: 20,
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
   },
-  cardHeader: {
+  cardGradientContent: {
+    flex: 1,
+    borderRadius: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+
+  headerRowObj: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    marginBottom: 4,
   },
-  orderId: {
-    fontSize: 20,
+  badgeInline: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  badgeTextInline: {
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+
+  customerRowObj: {
+    marginBottom: 16,
+  },
+  customerText: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#0A0A0A',
-    lineHeight: 28,
+    color: '#475569',
   },
-  customerName: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#4A5565',
-    lineHeight: 20,
+  phoneText: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
   },
-  statusBadgeWrap: {
+  orderIdText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1E293B',
+  },
+
+  row2: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    alignItems: 'baseline',
+    marginBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingBottom: 16,
   },
-  statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 33554400,
-  },
-  statusText: {
+  amountTextLabel: {
     fontSize: 14,
+    color: '#64748B',
+    marginRight: 6,
     fontWeight: '500',
-    lineHeight: 20,
   },
-  cardMiddle: {
+  amountText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#D32F2F',
+  },
+
+  row4: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginTop: 18,
+    justifyContent: 'space-between',
   },
-  timeRow: {
+  infoWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  clockIconWrap: {
-    width: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   infoText: {
     fontSize: 14,
-    fontWeight: '400',
-    color: '#4A5565',
-    lineHeight: 20,
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  cardActions: {
-    flexDirection: 'row',
-    marginTop: 16,
-    gap: 8,
-  },
-  actionBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionBtnText: {
+  timeTextObj: {
     fontSize: 14,
-    fontWeight: '500',
-    color: 'white',
+    fontWeight: '800',
+    color: '#1E293B',
+    fontVariant: ['tabular-nums'],
   },
+
+  watermarkListWrap: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.04,
+    zIndex: -1,
+    pointerEvents: 'none',
+  },
+  watermarkDelivery: { position: 'absolute', top: 50, left: 100, fontSize: 160, transform: [{ rotate: '-20deg' }] },
+  watermarkBag: { position: 'absolute', bottom: 100, right: 80, fontSize: 200, transform: [{ rotate: '15deg' }] },
 });

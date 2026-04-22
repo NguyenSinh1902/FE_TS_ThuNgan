@@ -18,8 +18,9 @@ const invoiceApi = {
   previewPayment: (id, body) => {
     return axiosClient.post(`/hoa-don/${id}/xuat-tam-tinh`, body);
   },
-  confirmPayment: (id, phuongThuc, body) => {
-    return axiosClient.post(`/hoa-don/${id}/xac-nhan-thanh-toan?phuongThuc=${phuongThuc}`, body);
+  confirmPayment: (id, bodyWithMethod) => {
+    // bodyWithMethod should include { idKhachHang, maCode, diemSuDung, danhSachIdThuePhi, phuongThuc }
+    return axiosClient.post(`/hoa-don/${id}/xac-nhan-thanh-toan`, bodyWithMethod);
   },
   completeOrder: (id) => {
     return axiosClient.post(`/hoa-don/${id}/hoan-tat`);

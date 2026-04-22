@@ -1,150 +1,113 @@
-import { StyleSheet, Dimensions } from 'react-native';
-
-const { width, height } = Dimensions.get('window');
-
-const COLORS = {
-  background: '#EDE1CE',
-  primary: '#8BA367',
-  secondary: '#D4B896',
-  white: '#FFFFFF',
-  textHeader: '#768D57',
-  black: '#000000',
-  glassOverlay: 'rgba(255, 255, 255, 0.4)',
-};
-
-export default StyleSheet.create({
+export default {
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  backgroundElements: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-  },
-  topCircle: {
-    position: 'absolute',
-    top: -50,
-    left: -50,
-    width: 256,
-    height: 256,
-    borderRadius: 128,
-    backgroundColor: COLORS.primary,
-    opacity: 0.8,
-  },
-  bottomCircle: {
-    position: 'absolute',
-    bottom: -80,
-    right: -60,
-    width: 288,
-    height: 288,
-    borderRadius: 144,
-    backgroundColor: COLORS.secondary,
-    opacity: 0.8,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 50,
-    paddingHorizontal: 24,
-  },
-  headerLogo: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    backgroundColor: '#FFFFFF',
   },
-  logoIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primary,
+  leftCol: {
+    flex: 4,
+    backgroundColor: '#F2F9EC', // Solid light matcha color
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  mainCard: {
-    width: width * 0.85,
-    aspectRatio: 0.9,
-    backgroundColor: COLORS.glassOverlay,
-    borderRadius: 32,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    elevation: 20,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 25 },
-    shadowOpacity: 0.2,
-    shadowRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageWrapper: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 24,
-    overflow: 'hidden',
-    backgroundColor: COLORS.white,
     position: 'relative',
+    overflow: 'hidden',
   },
-  image: {
+  logoGlow: {
+    shadowColor: '#4A924C',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 40,
+    elevation: 20,
+    marginBottom: 32,
+    borderRadius: 36,
+  },
+  logoWrap: {
+    width: 130,
+    height: 130,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#49934F',
+  },
+  brandTitle: {
+    fontSize: 50,
+    fontWeight: '900',
+    color: '#064E3B',
+    letterSpacing: 1,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 60,
+  },
+  rightCol: {
+    flex: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 60,
+    backgroundColor: '#FFFFFF', // Solid pure white
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  contentWrap: {
     width: '100%',
-    height: '100%',
+    maxWidth: 700, // Tăng maxWidth để chữ full 1 dòng
   },
-  starOverlay: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+  // Tăng opacity cho họa tiết rõ hơn
+  decor1: { position: 'absolute', top: '15%', left: '10%', fontSize: 90, opacity: 0.08, transform: [{ rotate: '-20deg' }] },
+  decor2: { position: 'absolute', bottom: '15%', right: '15%', fontSize: 110, opacity: 0.07, transform: [{ rotate: '15deg' }] },
+  decor3: { position: 'absolute', top: '40%', right: '-15%', fontSize: 130, opacity: 0.06, transform: [{ rotate: '45deg' }] },
+  decor4: { position: 'absolute', top: '20%', right: '10%', fontSize: 80, opacity: 0.06, transform: [{ rotate: '60deg' }] },
+  decor5: { position: 'absolute', bottom: '20%', left: '5%', fontSize: 100, opacity: 0.06, transform: [{ rotate: '-30deg' }] },
+  
+  title: {
+    fontSize: 44, // Giảm một tí để fit tốt hơn
+    fontWeight: '900',
+    color: '#1E293B',
+    marginBottom: 24,
+    lineHeight: 52,
   },
-  brandingContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  brandName: {
-    fontSize: 48,
-    fontWeight: 'normal', // Likely custom font Potta One, using default
-    color: COLORS.textHeader,
-    marginBottom: 4,
-  },
-  tagline: {
+  subtitle: {
     fontSize: 16,
-    color: '#333333',
     fontWeight: '400',
+    color: '#64748B',
+    marginBottom: 50,
+    lineHeight: 26,
   },
-  button: {
-    width: width * 0.85,
-    height: 56,
-    backgroundColor: COLORS.primary,
-    borderRadius: 28,
+  btnRow: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  btnWrapper: {
+    justifyContent: 'center',
+    flex: 1,
+  },
+  btnPrimary: {
+    paddingVertical: 18,
+    borderRadius: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 8,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
+    shadowColor: '#4A924C',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 24,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  buttonText: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: 1.2,
+  btnPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
-});
+  btnSecondary: {
+    paddingVertical: 18,
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#4A924C',
+    backgroundColor: '#FFFFFF',
+  },
+  btnSecondaryText: {
+    color: '#4A924C',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+};

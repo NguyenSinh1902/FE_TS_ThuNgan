@@ -1,160 +1,109 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StatusBar, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView 
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
-import styles from './Login.styles';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StatusBar, Animated, Pressable } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import s from './Login.styles';
+
+const AuthLayout = ({ children, onNavigate, title }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, { 
+      toValue: 1, 
+      duration: 300, 
+      useNativeDriver: true 
+    }).start();
+  }, []);
+
+  return (
+    <View style={s.container}>
+      <StatusBar barStyle="dark-content" />
+      
+      {/* Cột trái (40%) */}
+      <View style={s.leftCol}>
+        <Text style={s.decor1}>🍃</Text>
+        <Text style={s.decor2}>🍵</Text>
+        <Text style={s.decor3}>🌿</Text>
+
+        <View style={s.logoGlow}>
+          <LinearGradient colors={['#7EAA58', '#408043']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.logoWrap}>
+            <Text style={{ fontSize: 44 }}>🍵</Text>
+          </LinearGradient>
+        </View>
+        <Text style={s.brandTitle} numberOfLines={2}>MatchTea Cashier</Text>
+      </View>
+
+      {/* Cột phải (60%) */}
+      <View style={s.rightCol}>
+        <Text style={s.decor4}>🍃</Text>
+        <Text style={s.decor5}>🌿</Text>
+        <Animated.View style={[s.card, { opacity: fadeAnim }]}>
+          <View style={s.headerRow}>
+            <TouchableOpacity style={s.backBtnBtn} onPress={() => onNavigate('Start')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <Text style={{fontSize: 40, color: '#64748B', fontWeight: '300', lineHeight: 44, marginTop: -4}}>‹</Text>
+            </TouchableOpacity>
+            <Text style={s.title} numberOfLines={1}>{title}</Text>
+          </View>
+          {children}
+        </Animated.View>
+      </View>
+    </View>
+  );
+};
 
 const Login = ({ onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleLogin = () => {
-    // Navigate to Home screen
-    onNavigate('Home');
-  };
-
-  const CoffeeIcon = () => (
-    <View style={{ width: 32, height: 32 }}>
-      <Svg width="32" height="32" viewBox="0 0 28 20" fill="none">
-        <Path 
-          d="M18.6668 1.33334C19.0205 1.33334 19.3596 1.47381 19.6096 1.72386C19.8597 1.97391 20.0002 2.31305 20.0002 2.66667V13.3333C20.0002 14.7478 19.4383 16.1044 18.4381 17.1046C17.4379 18.1048 16.0813 18.6667 14.6668 18.6667H6.66683C5.25234 18.6667 3.89579 18.1048 2.89559 17.1046C1.8954 16.1044 1.3335 14.7478 1.3335 13.3333V2.66667C1.3335 2.31305 1.47397 1.97391 1.72402 1.72386C1.97407 1.47381 2.31321 1.33334 2.66683 1.33334H21.3335C22.748 1.33334 24.1045 1.89524 25.1047 2.89543C26.1049 3.89563 26.6668 5.25218 26.6668 6.66667C26.6668 8.08116 26.1049 9.43771 25.1047 10.4379C24.1045 11.4381 22.748 12 21.3335 12H20.0002" 
-          stroke="white" 
-          strokeWidth="2.66667" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
-        />
-        {/* Steam particles from Figma */}
-        <Path d="M10 1V4" stroke="white" strokeWidth="2" strokeLinecap="round" />
-        <Path d="M14 1V4" stroke="white" strokeWidth="2" strokeLinecap="round" />
-      </Svg>
-    </View>
-  );
-
-  const EyeIcon = ({ visible }) => (
-    <Svg width="19" height="14" viewBox="0 0 19 14" fill="none">
-      <Path 
-        d="M0.885584 6.95616C0.816133 6.76907 0.816133 6.56326 0.885584 6.37616C1.562 4.73604 2.71018 3.3337 4.18456 2.34691C5.65894 1.36013 7.39312 0.833344 9.16725 0.833344C10.9414 0.833344 12.6756 1.36013 14.1499 2.34691C15.6243 3.3337 16.7725 4.73604 17.4489 6.37616C17.5184 6.56326 17.5184 6.76907 17.4489 6.95616C16.7725 8.59628 15.6243 9.99863 14.1499 10.9854C12.6756 11.9722 10.9414 12.499 9.16725 12.499C7.39312 12.499 5.65894 11.9722 4.18456 10.9854C2.71018 9.99863 1.562 8.59628 0.885584 6.95616Z" 
-        stroke={visible ? "#8BA367" : "#99A1AF"} 
-        strokeWidth="1.66667" 
-        strokeLinecap="round" 
-        strokeLinejoin="round"
-      />
-      <Path 
-        d="M9.16725 9.33333C10.548 9.33333 11.6672 8.21405 11.6672 6.83333C11.6672 5.45262 10.548 4.33333 9.16725 4.33333C7.78654 4.33333 6.66725 5.45262 6.66725 6.83333C6.66725 8.21405 7.78654 9.33333 9.16725 9.33333Z" 
-        stroke={visible ? "#8BA367" : "#99A1AF"} 
-        strokeWidth="1.66667" 
-        strokeLinecap="round" 
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
+  const [showPw, setShowPw] = useState(false);
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-      style={styles.container}
-    >
-      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+    <AuthLayout onNavigate={onNavigate} title="Đăng nhập Hệ thống">
       
-      {/* Background Decor */}
-      <View style={styles.backgroundElements}>
-        <View style={styles.circle1} />
-        <View style={styles.circle2} />
+      <View style={s.inputWrap}>
+        <TextInput
+          style={s.input}
+          placeholder="Email"
+          placeholderTextColor="#94A3B8"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
       </View>
 
-      <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView 
-          contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.content}>
-            
-            {/* Header */}
-            <View style={styles.headerSection}>
-              <View style={styles.logoContainer}>
-                <CoffeeIcon />
-              </View>
-              <Text style={styles.titleText}>Đăng Nhập</Text>
-              <Text style={styles.subtitleText}>Chào mừng bạn trở lại</Text>
-            </View>
+      <View style={s.pwInputWrap}>
+        <TextInput
+          style={s.pwInput}
+          placeholder="Mật khẩu"
+          placeholderTextColor="#94A3B8"
+          secureTextEntry={!showPw}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity onPress={() => setShowPw(!showPw)}>
+          <Text style={{fontSize: 20}}>{showPw ? '🙈' : '👁️'}</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <TouchableOpacity>
+        <Text style={s.forgotPwText}>Quên mật khẩu?</Text>
+      </TouchableOpacity>
 
-            <View style={styles.card}>
-              
-              {/* Rounded White Input Area */}
-              <View style={styles.inputContainer}>
-                {/* Email Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email / Số điện thoại</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="email@example.com"
-                    placeholderTextColor="#99A1AF"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
+      <Pressable 
+        style={({ pressed }) => [s.btnWrapper, pressed && { transform: [{ scale: 0.98 }] }]} 
+        onPress={() => onNavigate('Home')}
+      >
+        <LinearGradient colors={['#7EAA58', '#408043']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.btnPrimary}>
+          <Text style={s.btnPrimaryText} numberOfLines={1}>Đăng nhập</Text>
+        </LinearGradient>
+      </Pressable>
 
-                {/* Password Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Mật khẩu</Text>
-                  <View style={[styles.input, styles.passwordContainer]}>
-                    <TextInput
-                      style={[{ flex: 1, height: '100%' }, styles.passwordInput]}
-                      placeholder="••••••••"
-                      placeholderTextColor="#99A1AF"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                    />
-                    <TouchableOpacity 
-                      style={styles.eyeIcon}
-                      onPress={() => setShowPassword(!showPassword)}
-                    >
-                      <EyeIcon visible={showPassword} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
+      <TouchableOpacity onPress={() => onNavigate('Register')} style={s.footerLinkWrap}>
+        <Text style={s.footerText}>
+          Chưa có tài khoản? <Text style={s.linkText}>Đăng ký ngay</Text>
+        </Text>
+      </TouchableOpacity>
 
-              {/* Forgot Password */}
-              <TouchableOpacity style={styles.forgotPasswordContainer}>
-                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-              </TouchableOpacity>
-
-              {/* Login Button */}
-              <TouchableOpacity 
-                style={styles.loginBtn}
-                onPress={handleLogin}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.loginBtnText}>ĐĂNG NHẬP</Text>
-              </TouchableOpacity>
-
-            </View>
-
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Chưa có tài khoản?</Text>
-              <TouchableOpacity onPress={() => onNavigate('Register')}>
-                <Text style={styles.signupText}>Đăng ký ngay</Text>
-              </TouchableOpacity>
-            </View>
-
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+    </AuthLayout>
   );
 };
 

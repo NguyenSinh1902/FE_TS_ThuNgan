@@ -1,339 +1,312 @@
-import { StyleSheet, Dimensions, Platform } from 'react-native';
-
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 32 - 16) / 2; // horizontal padding 16*2, gap 16.
+import { StyleSheet } from 'react-native';
 
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  gradientBg: {
-    flex: 1,
-  },
-  // --- Header ---
-  headerContainer: {
-    width: '100%',
-    height: Platform.OS === 'ios' ? 140 : 120, // Tăng thêm height để nới rộng header
-    position: 'absolute',
-    top: 0,
-    zIndex: 10,
-    overflow: 'hidden',
-  },
-  headerDecorContainer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    opacity: 0.08,
-  },
-  leaf1: { position: 'absolute', left: 52, top: 0, transform: [{ rotate: '12deg' }] },
-  leaf2: { position: 'absolute', left: 193, top: 133, transform: [{ rotate: '-45deg' }] },
-  leaf3: { position: 'absolute', left: 243, top: -48, transform: [{ rotate: '-12deg' }] },
-  leafText: { fontSize: 80, color: '#0A0A0A' },
-  headerContent: {
-    width: width - 32,
-    height: 48,
-    marginHorizontal: 16,
-    marginTop: Platform.OS === 'ios' ? 60 : 40, // Đẩy avatar và thông tin xuống
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    zIndex: 11,
-  },
-  userInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  avatarWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  avatarInitials: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  roleText: {
-    color: 'rgba(208, 250, 229, 0.80)',
-    fontSize: 12,
-    fontFamily: 'Inter',
-    fontWeight: '300',
-  },
-  nameText: {
-    color: 'rgba(255, 255, 255, 0.95)',
-    fontSize: 16,
-    fontFamily: 'Inter',
-    fontWeight: '600',
-  },
-  notiBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.20)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notiBadge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FB2C36',
-    borderWidth: 2,
-    borderColor: '#006045',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notiBadgeText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: '700',
+    backgroundColor: '#F0F2F5',
   },
 
-  // --- Main Tab Bar ---
-  topTabBarContainer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 115 : 95, // Đẩy Tab bar xuống khớp với header mới
-    width: '100%',
-    alignItems: 'center',
+  // SIDEBAR
+  sidebar: {
+    backgroundColor: '#F0FDF4',
+    paddingTop: 45, // Đẩy content xuống để né status bar nhưng vẫn giữ nền xanh tràn lên trên
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+    borderRightWidth: 1,
+    borderColor: '#E2E8F0',
     zIndex: 20,
   },
-  topTabBar: {
-    width: width - 20,
-    height: 50,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.30)',
+  sidebarHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 5,
+    backgroundColor: '#C8E6C9',
+    padding: 12,
+    borderRadius: 15,
+    marginBottom: 24,
   },
-  topTabBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 20,
+  logoCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  topTabBtnActive: {
-    backgroundColor: 'rgba(193.70, 193.70, 193.70, 0.53)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.40)',
-  },
-  topTabText: {
-    color: 'rgba(208, 250, 229, 0.90)',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  topTabTextActive: {
-    color: 'white',
-  },
-
-  // --- List ---
-  listContent: {
-    paddingTop: Platform.OS === 'ios' ? 190 : 170, // Đẩy danh sách xuống để không bị che
-    paddingHorizontal: 16,
-    paddingBottom: 110,
-  },
-  sectionTitleWrap: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    color: '#1E2939',
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 24,
-  },
-  sectionSubtitle: {
-    color: '#4A5565',
-    fontSize: 12,
-    fontWeight: '300',
-    lineHeight: 16,
-  },
-  columnWrapper: {
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-
-  // --- Table Card ---
-  tableCard: {
-    width: CARD_WIDTH,
-    height: 160.5,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-    position: 'relative',
-    shadowColor: '#34D399',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 4,
-  },
-  cardDecorBL: {
-    position: 'absolute',
-    left: -20,
-    bottom: -20,
-    width: 80,
-    height: 80,
-    borderTopRightRadius: 80,
-  },
-  cardDecorTR: {
-    position: 'absolute',
-    right: -20,
-    top: -20,
-    width: 80,
-    height: 80,
-    borderBottomLeftRadius: 100,
-  },
-  cardContent: {
-    padding: 16,
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tableName: {
-    color: '#1E2939',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  badgeWrap: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 33554400,
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.45,
-  },
-  cardMiddle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-  },
-  capacityText: {
-    color: '#364153',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  capacityIcon: {
-    width: 16,
-    height: 16,
-    opacity: 0.7,
-  },
-  cardBottomWrap: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.40)',
-    paddingTop: 12,
-    marginTop: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  amountLabel: {
-    color: '#4A5565',
-    fontSize: 9,
-    fontWeight: '300',
-    letterSpacing: 0.22,
-  },
-  amountValue: {
-    color: '#1E2939',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  emptyStatusText: {
-    color: '#99A1AF',
-    fontSize: 12,
-    fontWeight: '300',
-    paddingTop: 4,
-    textAlign: 'center',
-    width: '100%',
-  },
-  timeWrap: {
-    backgroundColor: 'rgba(255, 255, 255, 0.40)',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  timeText: {
-    color: '#4A5565',
-    fontSize: 12,
-    fontWeight: '300',
-  },
-
-  // --- Takeaway Card ---
-  takeawayCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.60)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    marginRight: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 2,
   },
+  appTitleWrapper: { flex: 1 },
+  appTitle: { fontSize: 14, fontWeight: '900', color: '#1B5E20' }, // Thu nhỏ xíu để hết bị ẩn
+  appSubtitle: { fontSize: 12, color: '#4CAF50' },
 
-  // --- Bottom Nav ---
-  bottomNavWrapper: {
-    position: 'absolute',
-    bottom: 25,
-    width: '100%',
-    alignItems: 'center',
-  },
-  bottomNavContainer: {
-    width: width - 30,
-    height: 55,
-    backgroundColor: '#EAF5E2',
+  sidebarBody: {
+    flex: 1,
     borderRadius: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 8,
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+    gap: 8,
+    overflow: 'hidden', // Yêu cầu để bọc Gradient
+    position: 'relative',
+  },
+  sidebarGradientInner: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 30,
+  },
+  navItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 20,
   },
-  bottomNavBtn: {
+  navItemActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  navIconCircle: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#FFFFFF', marginRight: 12,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  navText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+
+  sidebarFooterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#C8E6C9',
+    padding: 12,
+    borderRadius: 15,
+    marginTop: 24,
+  },
+  userAvatar: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#FFFFFF', marginRight: 12,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+  },
+  userName: { fontSize: 15, fontWeight: '800', color: '#1B5E20' },
+  shiftText: { fontSize: 12, color: '#4CAF50', fontWeight: '600', marginTop: 2 },
+
+  // MAIN CONTENT & HEADER
+  mainContent: {
+    flex: 1,
+    backgroundColor: '#F0F2F5',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+
+  watermark1: { position: 'absolute', top: '10%', left: '5%', fontSize: 130, opacity: 0.05, transform: [{ rotate: '-20deg' }] },
+  watermark2: { position: 'absolute', bottom: '15%', right: '8%', fontSize: 160, opacity: 0.06, transform: [{ rotate: '15deg' }] },
+  watermark3: { position: 'absolute', top: '40%', right: '-5%', fontSize: 180, opacity: 0.04, transform: [{ rotate: '45deg' }] },
+  watermark4: { position: 'absolute', top: '30%', left: '30%', fontSize: 100, opacity: 0.05, transform: [{ rotate: '-45deg' }] },
+
+  headerWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 32,
+    paddingTop: 45,
+    paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+    zIndex: 10,
+  },
+
+  segmentControl: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 100, // Hoàn toàn bo tròn
+    height: 44,
+    width: 280, // Dài ra theo yêu cầu
+    padding: 4,
+  },
+  segmentBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 100 },
+  segmentBtnActiveWrapper: { flex: 1, borderRadius: 100 },
+  segmentBtnActive: {
+    flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 100,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+  },
+  segmentText: { fontSize: 14, fontWeight: '700', color: '#64748B' },
+  segmentTextActive: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+
+  statusDotRowWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 41,
-    borderRadius: 30,
-    paddingHorizontal: 16,
-    gap: 8,
+    gap: 16,
+    flex: 1, // Tràn ra giữa
   },
-  bottomNavBtnActive: {
-    backgroundColor: '#D9D9D9',
+  statusDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  bottomNavText: {
-    color: 'black',
-    fontSize: 12,
-    fontWeight: '500',
+  dot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  dotText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', height: 44,
+    paddingHorizontal: 16, borderRadius: 22,
+    width: 240, borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  searchText: { color: '#94A3B8', marginLeft: 8, fontSize: 14 },
+  iconBtnSquare: {
+    width: 44, height: 44, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8F5E9', // Xanh Matcha cực nhạt
+  },
+
+  // TABLE GRID
+  listContent: {
+    paddingHorizontal: 32,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  columnWrapper: {
+    justifyContent: 'flex-start',
+    gap: 24,
+    marginBottom: 24,
+  },
+
+  cardWrapper: {
+    flex: 1,
+    maxWidth: '23%',
+    minHeight: 140,
+    borderRadius: 20,
+    borderWidth: 1,
+    position: 'relative',
+    // Bóng đổ mượt mà xám nhạt
+    shadowColor: '#94A3B8',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  cardGradientContent: {
+    flex: 1,
+    padding: 20,
+    borderRadius: 19, // Lọt lòng border
+    justifyContent: 'center',
+    // Bỏ overflow hidden để hiển thị được viền khuyết
+  },
+
+  ticketCutoutLeft: {
+    position: 'absolute',
+    left: -12,
+    top: '48%',
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#F0F2F5', // Nền Body
+    borderRightWidth: 1.5,
+    zIndex: 10,
+  },
+  ticketCutoutRight: {
+    position: 'absolute',
+    right: -12,
+    top: '48%',
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#F0F2F5', // Nền Body
+    borderLeftWidth: 1.5,
+    zIndex: 10,
+  },
+  ticketLine: {
+    height: 1, borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+    borderStyle: 'dashed',
+    marginVertical: 14,
+  },
+
+  // Icon báo hiệu góc phải lòi ra
+  floatingBellWrap: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 28, height: 28,
+    borderRadius: 14,
+    backgroundColor: '#8BA367', // Matcha đậm
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  cardRow1: {
+    flexDirection: 'row', // Chuyển tag lên cùng hàng với tên bàn
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  tableNameTicket: {
+    fontSize: 18, // Thu nhỏ để cùng màu tiền và cùng hàng tag như yêu cầu
+    fontWeight: '900',
+  },
+  // Glassmorphism Tag
+  invoiceTagWrapObj: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
+  invoiceTagTextObj: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+
+  cardRow2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
+  timeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardRow2Text: {
+    fontSize: 13,
+    fontWeight: '800', // Khách và đồng hồ đậm hơn
+    color: '#1E293B',
+    marginLeft: 6,
+  },
+  timeTextObj: {
+    fontSize: 13,
+    fontWeight: '800', // Đậm và rõ hơn
+    color: '#1E293B',
+    marginLeft: 6,
+    fontVariant: ['tabular-nums'], // Số thẳng cột đẹp
+  },
+
+  cardRow3: {
+    marginTop: 12,
+  },
+  amountTextObj: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#D32F2F', // Đỏ đô cực nổi
   },
 });
