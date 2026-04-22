@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StatusBar, Animated, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StatusBar, Animated, Pressable, Alert, ActivityIndicator } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import authApi from '../../api/authApi';
+import safeAsyncStorage from '../../utils/storage';
 import s from './styles';
 
 const AuthLayout = ({ children, onNavigate, title }) => {
@@ -53,15 +55,68 @@ const AuthLayout = ({ children, onNavigate, title }) => {
 const Register = ({ onNavigate }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const restoreForm = async () => {
+      const savedName = await safeAsyncStorage.getItem('pending_name');
+      const savedEmail = await safeAsyncStorage.getItem('pending_email');
+      const savedPhone = await safeAsyncStorage.getItem('pending_phone');
+      if (savedName) setName(savedName);
+      if (savedEmail) setEmail(savedEmail);
+      if (savedPhone) setPhone(savedPhone);
+    };
+    restoreForm();
+  }, []);
+
+  const handleRegister = async () => {
+    if (!name || !email || !phone || !password || !confirmPassword) {
+      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const payload = {
+        hoTen: name,
+        email: email,
+        soDienThoai: phone,
+        matKhau: password,
+      };
+
+      await authApi.register(payload);
+      
+      // Lưu lại thông tin để dùng cho bước Verify OTP hoặc khi quay lại
+      await safeAsyncStorage.setItem('pending_email', email);
+      await safeAsyncStorage.setItem('pending_name', name);
+      await safeAsyncStorage.setItem('pending_phone', phone);
+      
+      Alert.alert(
+        'Thành công',
+        'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra.',
+        [{ text: 'OK', onPress: () => onNavigate('VerifyOTP', { email: email }) }]
+      );
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || 'Đăng ký không thành công. Vui lòng thử lại.';
+      Alert.alert('Lỗi đăng ký', errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AuthLayout onNavigate={onNavigate} title="Đăng ký Tài khoản Thu ngân">
       
-      {/* Lưới 2x2 cho Input */}
       <View style={s.rowInputs}>
         <View style={s.inputWrap}>
           <TextInput 
@@ -86,6 +141,16 @@ const Register = ({ onNavigate }) => {
       </View>
 
       <View style={s.rowInputs}>
+        <View style={s.inputWrap}>
+          <TextInput 
+            style={s.input} 
+            placeholder="Số điện thoại" 
+            placeholderTextColor="#94A3B8" 
+            keyboardType="phone-pad"
+            value={phone} 
+            onChangeText={setPhone} 
+          />
+        </View>
         <View style={s.pwInputWrap}>
           <TextInput 
             style={s.pwInput} 
@@ -99,6 +164,9 @@ const Register = ({ onNavigate }) => {
             <Text style={{fontSize: 20}}>{showPw ? '🙈' : '👁️'}</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      <View style={s.rowInputs}>
         <View style={s.pwInputWrap}>
           <TextInput 
             style={s.pwInput} 
@@ -112,14 +180,20 @@ const Register = ({ onNavigate }) => {
             <Text style={{fontSize: 20}}>{showConfirmPw ? '🙈' : '👁️'}</Text>
           </TouchableOpacity>
         </View>
+        <View style={{ flex: 1 }} />
       </View>
 
       <Pressable 
-        style={({ pressed }) => [s.btnWrapper, pressed && { transform: [{ scale: 0.98 }] }]} 
-        onPress={() => onNavigate('Home')}
+        style={({ pressed }) => [s.btnWrapper, pressed && { transform: [{ scale: 0.98 }] }, loading && { opacity: 0.7 }]} 
+        onPress={handleRegister}
+        disabled={loading}
       >
         <LinearGradient colors={['#7EAA58', '#408043']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.btnPrimary}>
-          <Text style={s.btnPrimaryText} numberOfLines={1}>Đăng ký</Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={s.btnPrimaryText} numberOfLines={1}>Đăng ký</Text>
+          )}
         </LinearGradient>
       </Pressable>
 

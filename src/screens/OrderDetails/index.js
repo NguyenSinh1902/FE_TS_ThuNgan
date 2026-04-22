@@ -292,14 +292,14 @@ const OrderDetails = ({ onNavigate, params }) => {
     if (appliedVoucher.loaiKhuyenMai === 'GIAM_TIEN_MAT') {
       voucherDiscount = appliedVoucher.giaTriGiam;
     } else if (appliedVoucher.loaiKhuyenMai === 'GIAM_PHAN_TRAM') {
-      voucherDiscount = subtotal * appliedVoucher.giaTriGiam;
+      voucherDiscount = (subtotal * appliedVoucher.giaTriGiam) / 100;
     }
   } else {
     selectedVouchers.forEach(vId => {
       const v = vouchers.find(x => x.idKhuyenMai === vId);
       if (v) {
         if (v.loaiKhuyenMai === 'GIAM_TIEN_MAT') voucherDiscount += v.giaTriGiam;
-        else if (v.loaiKhuyenMai === 'GIAM_PHAN_TRAM') voucherDiscount += subtotal * v.giaTriGiam;
+        else if (v.loaiKhuyenMai === 'GIAM_PHAN_TRAM') voucherDiscount += (subtotal * v.giaTriGiam) / 100;
       }
     });
   }
@@ -1076,63 +1076,98 @@ const OrderDetails = ({ onNavigate, params }) => {
       <Modal visible={showReceiptModal} transparent animationType="slide">
         <View style={styles.receiptModalOverlay}>
           <View style={styles.receiptPaper}>
-            <Text style={styles.receiptBrand}>MATCHTEA COFFEE</Text>
-            <Text style={styles.receiptSubBrand}>Đ/C: 123 Đường ABC, Quận 1, TP.HCM</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 600 }}>
+              <Text style={styles.receiptBrand}>MATCHTEA COFFEE</Text>
+              <Text style={styles.receiptSubBrand}>Đ/C: 123 Đường ABC, Quận 1, TP.HCM</Text>
 
-            <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+              <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
 
-            <View style={styles.receiptRow}>
-              <Text style={styles.receiptLabel}>Bàn:</Text>
-              <Text style={styles.receiptValue}>{params?.tableName || 'Mang về'}</Text>
-            </View>
-            <View style={styles.receiptRow}>
-              <Text style={styles.receiptLabel}>Ngày:</Text>
-              <Text style={styles.receiptValue}>{new Date().toLocaleDateString('vi-VN')}</Text>
-            </View>
-            <View style={styles.receiptRow}>
-              <Text style={styles.receiptLabel}>Thu ngân:</Text>
-              <Text style={styles.receiptValue}>Nguyễn Văn A</Text>
-            </View>
-
-            {foundMember && (
-              <View style={[styles.receiptRow, { marginTop: 4 }]}>
-                <Text style={styles.receiptLabel}>Khách hàng:</Text>
-                <Text style={styles.receiptValue}>{foundMember.hoTen}</Text>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Bàn:</Text>
+                <Text style={styles.receiptValue}>{params?.tableName || 'Mang về'}</Text>
               </View>
-            )}
-
-            <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
-
-            {(previewInvoice?.danhSachChiTiet || invoice?.danhSachChiTiet || []).map((item, idx) => (
-              <View key={idx} style={[styles.receiptRow, { marginBottom: 4 }]}>
-                <Text style={styles.receiptItemName}>{item.tenSanPham}</Text>
-                <Text style={styles.receiptItemQty}>x{item.soLuong}</Text>
-                <Text style={styles.receiptItemPrice}>{formatPrice(item.thanhTien)}</Text>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Ngày:</Text>
+                <Text style={styles.receiptValue}>{new Date().toLocaleDateString('vi-VN')}</Text>
               </View>
-            ))}
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Thu ngân:</Text>
+                <Text style={styles.receiptValue}>Nguyễn Văn A</Text>
+              </View>
 
-            <View style={styles.receiptTotalRow}>
-              <Text style={styles.receiptTotalLabel}>TỔNG CỘNG</Text>
-              <Text style={styles.receiptTotalValue}>{formatPrice(previewInvoice?.tongThanhToan || total)}</Text>
-            </View>
+              {foundMember && (
+                <View style={[styles.receiptRow, { marginTop: 4 }]}>
+                  <Text style={styles.receiptLabel}>Khách hàng:</Text>
+                  <Text style={styles.receiptValue}>{foundMember.hoTen}</Text>
+                </View>
+              )}
 
-            <View style={styles.receiptQR}>
-              <Image
-                source={require('../../assets/images/qr_pay.png')}
-                style={styles.receiptQRImg}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', marginTop: 8, color: '#1E293B' }}>
-              STK: 0123456789 - MB Bank
-            </Text>
-            <Text style={{ textAlign: 'center', fontSize: 10, color: '#64748B', marginTop: 2 }}>
-              CTK: MATCHTEA COFFEE
-            </Text>
+              <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
 
-            <Text style={{ textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 20, fontStyle: 'italic' }}>
-              Cảm ơn quý khách. Hẹn gặp lại!
-            </Text>
+              {(previewInvoice?.danhSachChiTiet || invoice?.danhSachChiTiet || []).map((item, idx) => (
+                <View key={idx} style={[styles.receiptRow, { marginBottom: 4 }]}>
+                  <Text style={styles.receiptItemName}>{item.tenSanPham}</Text>
+                  <Text style={styles.receiptItemQty}>x{item.soLuong}</Text>
+                  <Text style={styles.receiptItemPrice}>{formatPrice(item.thanhTien)}</Text>
+                </View>
+              ))}
+
+              <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+              {/* Chi tiết thanh toán */}
+              <View style={{ gap: 4 }}>
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptItemName}>Tiền hàng</Text>
+                  <Text style={styles.receiptItemPrice}>{formatPrice(previewInvoice?.tongTienHang || subtotal)}</Text>
+                </View>
+
+                {pointsDiscount > 0 && (
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptItemName}>Cấn trừ điểm</Text>
+                    <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(pointsDiscount)}</Text>
+                  </View>
+                )}
+
+                {(previewInvoice?.giamGiaKhuyenMai > 0 || voucherDiscount > 0) && (
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptItemName}>Khuyến mãi {previewInvoice?.maKhuyenMai ? `(${previewInvoice.maKhuyenMai})` : ''}</Text>
+                    <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(previewInvoice?.giamGiaKhuyenMai || voucherDiscount)}</Text>
+                  </View>
+                )}
+
+                {previewInvoice?.danhSachThuePhi?.map((t, i) => (
+                  <View key={i} style={styles.receiptRow}>
+                    <Text style={styles.receiptItemName}>{t.tenThuePhi}</Text>
+                    <Text style={styles.receiptItemPrice}>+{formatPrice(t.soTienQuyDoi)}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+              <View style={styles.receiptTotalRow}>
+                <Text style={styles.receiptTotalLabel}>TỔNG CỘNG</Text>
+                <Text style={styles.receiptTotalValue}>{formatPrice(previewInvoice?.tongThanhToan || total)}</Text>
+              </View>
+
+              <View style={styles.receiptQR}>
+                <Image
+                  source={require('../../assets/images/qr_pay.png')}
+                  style={styles.receiptQRImg}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', marginTop: 8, color: '#1E293B' }}>
+                STK: 0123456789 - MB Bank
+              </Text>
+              <Text style={{ textAlign: 'center', fontSize: 10, color: '#64748B', marginTop: 2 }}>
+                CTK: MATCHTEA COFFEE
+              </Text>
+
+              <Text style={{ textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 20, fontStyle: 'italic' }}>
+                Cảm ơn quý khách. Hẹn gặp lại!
+              </Text>
+            </ScrollView>
 
             <TouchableOpacity
               style={[styles.payBtn, { marginTop: 20, backgroundColor: '#1E293B' }]}

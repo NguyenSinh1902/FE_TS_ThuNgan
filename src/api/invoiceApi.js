@@ -5,6 +5,9 @@ const invoiceApi = {
     // type: 'TAI_BAN' | 'MANG_VE'
     return axiosClient.get(`/hoa-don/loc-theo-loai?loai=${type}`);
   },
+  getAll: () => {
+    return axiosClient.get('/hoa-don');
+  },
   getInvoiceDetails: (id) => {
     return axiosClient.get(`/hoa-don/${id}`);
   },

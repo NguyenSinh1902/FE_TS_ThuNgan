@@ -1,34 +1,52 @@
 import axios from 'axios';
+import safeAsyncStorage from '../utils/storage';
 
 const axiosClient = axios.create({
-  // baseURL: 'http://localhost:8080/api',
-  baseURL: 'http://10.0.2.2:8080/api', // Use 10.0.2.2 for Android Emulator to reach localhost
-  timeout: 10000,
+  baseURL: 'http://10.0.2.2:8080/api', // Android Emulator default to localhost
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 50000, // Tăng timeout lên 50s vì gửi email có thể chậm
 });
 
-// Interceptors for professional handling
+// Interceptor to add token to requests
 axiosClient.interceptors.request.use(
-  (config) => {
-    // Add auth token here if needed: config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    const token = await safeAsyncStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
+// Interceptor to handle global errors
 axiosClient.interceptors.response.use(
   (response) => {
-    if (response && response.data) {
-      return response.data;
-    }
-    return response;
+    return response.data;
   },
   (error) => {
-    // Handle global errors like 401, 500, etc.
-    console.error('API Error:', error.response?.data || error.message);
-    throw error;
+    let message = 'Đã có lỗi xảy ra';
+
+    if (error.response && error.response.data) {
+      const data = error.response.data;
+      message = data.message || data.detail || data.error || data.title || (typeof data === 'string' ? data : message);
+    } else if (error.code === 'ECONNABORTED') {
+      message = 'Hệ thống đang xử lý yêu cầu quá lâu (Timeout). Vui lòng kiểm tra email hoặc thử lại sau.';
+    } else {
+      message = error.message || message;
+    }
+
+    console.error('API Error Details::', {
+      status: error.response?.status,
+      message: message,
+      data: error.response?.data
+    });
+
+    return Promise.reject({ ...error, message });
   }
 );
 

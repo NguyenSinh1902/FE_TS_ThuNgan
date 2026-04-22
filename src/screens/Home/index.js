@@ -8,13 +8,19 @@ import {
   ActivityIndicator,
   Animated,
   StyleSheet,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Users, Clock, Bell, Grid, FileText, BarChart2, Settings, User, Search, Sliders, Coffee } from 'lucide-react-native';
 import tableApi from '../../api/tableApi';
 import invoiceApi from '../../api/invoiceApi';
+import staffApi from '../../api/staffApi';
+import safeAsyncStorage from '../../utils/storage';
 import TakeawayTab from './TakeawayTab';
+import UserProfileModal from './components/UserProfileModal';
 import styles from './Home.styles';
+import { Alert } from 'react-native';
+import HistoryTab from './components/HistoryTab';
 
 const getTableTheme = (status, invoiceStatus) => {
   let hasOuterGlow = false;
@@ -159,6 +165,8 @@ const Home = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState('AT_TABLE');
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isProfileVisible, setIsProfileVisible] = useState(false);
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const sidebarWidth = useRef(new Animated.Value(240)).current;
@@ -175,7 +183,39 @@ const Home = ({ onNavigate }) => {
 
   useEffect(() => {
     fetchData();
+    fetchUserProfile();
   }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const userId = await safeAsyncStorage.getItem('userId');
+      if (userId) {
+        const profile = await staffApi.getProfile(userId);
+        setCurrentUser(profile);
+      }
+    } catch (error) {
+      console.error('Fetch profile failed:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Đăng xuất', 
+          style: 'destructive',
+          onPress: async () => {
+            await safeAsyncStorage.removeItem('token');
+            await safeAsyncStorage.removeItem('userId');
+            onNavigate('Start', { reset: true });
+          }
+        }
+      ]
+    );
+  };
 
   const fetchData = async () => {
     try {
@@ -255,17 +295,33 @@ const Home = ({ onNavigate }) => {
         ))}
       </View>
 
-      <TouchableOpacity activeOpacity={0.7} delayPressIn={0} style={[styles.sidebarFooterBtn, !isSidebarExpanded && { justifyContent: 'center', padding: 8 }]}>
-        <View style={[styles.userAvatar, !isSidebarExpanded && { marginRight: 0 }]}>
-          <User size={20} color="#8BA367" strokeWidth={2} />
+      <TouchableOpacity 
+        activeOpacity={0.7} 
+        delayPressIn={0} 
+        style={[styles.sidebarFooterBtn, !isSidebarExpanded && { justifyContent: 'center', padding: 8 }]}
+        onPress={() => setIsProfileVisible(true)}
+      >
+        <View style={[styles.userAvatar, !isSidebarExpanded && { marginRight: 0 }, { overflow: 'hidden' }]}>
+          <Image 
+            source={require('../../assets/images/user_avatar.png')} 
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
         </View>
         {isSidebarExpanded && (
           <View style={{ flex: 1 }}>
-            <Text style={styles.userName} numberOfLines={1}>Nguyễn Văn A</Text>
-            <Text style={styles.shiftText} numberOfLines={1}>{shiftText}</Text>
+            <Text style={styles.userName} numberOfLines={1}>{currentUser?.hoTen || 'Đang tải...'}</Text>
+            <Text style={styles.shiftText} numberOfLines={1}>{currentUser?.vaiTro === 'THU_NGAN' ? 'Thu ngân' : (currentUser?.vaiTro || shiftText)}</Text>
           </View>
         )}
       </TouchableOpacity>
+
+      <UserProfileModal 
+        isVisible={isProfileVisible}
+        onClose={() => setIsProfileVisible(false)}
+        user={currentUser}
+        onLogout={handleLogout}
+      />
     </Animated.View>
   );
 
@@ -346,23 +402,34 @@ const Home = ({ onNavigate }) => {
         <Text style={styles.watermark3}>✨</Text>
         <Text style={styles.watermark4}>🍂</Text>
 
-        <TopHeader />
-
-        {activeTab === 'TAKEAWAY' ? (
-          <TakeawayTab onNavigate={onNavigate} />
-        ) : loading ? (
-          <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator size="large" color="#8BA367" /></View>
+        {activeMenu === 'DASHBOARD' ? (
+          <>
+            <TopHeader />
+            {activeTab === 'TAKEAWAY' ? (
+              <TakeawayTab onNavigate={onNavigate} />
+            ) : loading ? (
+              <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator size="large" color="#8BA367" /></View>
+            ) : (
+              <FlatList
+                data={tables}
+                renderItem={({ item }) => <TableCard item={item} onNavigate={onNavigate} />}
+                keyExtractor={t => t.id}
+                numColumns={4}
+                key={'4-columns'}
+                contentContainerStyle={styles.listContent}
+                columnWrapperStyle={styles.columnWrapper}
+                showsVerticalScrollIndicator={false}
+              />
+            )}
+          </>
+        ) : activeMenu === 'HISTORY' ? (
+          <HistoryTab />
         ) : (
-          <FlatList
-            data={tables}
-            renderItem={({ item }) => <TableCard item={item} onNavigate={onNavigate} />}
-            keyExtractor={t => t.id}
-            numColumns={4}
-            key={'4-columns'}
-            contentContainerStyle={styles.listContent}
-            columnWrapperStyle={styles.columnWrapper}
-            showsVerticalScrollIndicator={false}
-          />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ fontSize: 24, color: '#94A3B8', fontWeight: '800' }}>
+              Tính năng {activeMenu} đang được phát triển
+            </Text>
+          </View>
         )}
       </View>
     </View>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StatusBar, Animated, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StatusBar, Animated, Pressable, Alert, ActivityIndicator } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import authApi from '../../api/authApi';
+import safeAsyncStorage from '../../utils/storage';
 import s from './Login.styles';
 
 const AuthLayout = ({ children, onNavigate, title }) => {
@@ -54,6 +56,37 @@ const Login = ({ onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ email và mật khẩu');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await authApi.login({ email, matKhau: password });
+      
+      if (response.token) {
+        // Lưu token và id người dùng
+        await safeAsyncStorage.setItem('token', response.token);
+        if (response.user?.idNhanVien) {
+          await safeAsyncStorage.setItem('userId', response.user.idNhanVien.toString());
+        }
+        
+        // Điều hướng đến Home
+        onNavigate('Home', { reset: true });
+      } else {
+        Alert.alert('Lỗi', 'Thông tin đăng nhập không chính xác');
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.';
+      Alert.alert('Đăng nhập thất bại', errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AuthLayout onNavigate={onNavigate} title="Đăng nhập Hệ thống">
@@ -89,11 +122,16 @@ const Login = ({ onNavigate }) => {
       </TouchableOpacity>
 
       <Pressable 
-        style={({ pressed }) => [s.btnWrapper, pressed && { transform: [{ scale: 0.98 }] }]} 
-        onPress={() => onNavigate('Home')}
+        style={({ pressed }) => [s.btnWrapper, pressed && { transform: [{ scale: 0.98 }] }, loading && { opacity: 0.7 }]} 
+        onPress={handleLogin}
+        disabled={loading}
       >
         <LinearGradient colors={['#7EAA58', '#408043']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.btnPrimary}>
-          <Text style={s.btnPrimaryText} numberOfLines={1}>Đăng nhập</Text>
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={s.btnPrimaryText} numberOfLines={1}>Đăng nhập</Text>
+          )}
         </LinearGradient>
       </Pressable>
 
