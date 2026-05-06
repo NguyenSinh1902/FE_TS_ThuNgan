@@ -9,6 +9,7 @@ import {
   Animated,
   StyleSheet,
   Image,
+  TextInput,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Users, Clock, Bell, Grid, FileText, BarChart2, Settings, User, Search, Sliders, Coffee } from 'lucide-react-native';
@@ -18,6 +19,11 @@ import staffApi from '../../api/staffApi';
 import safeAsyncStorage from '../../utils/storage';
 import TakeawayTab from './TakeawayTab';
 import UserProfileModal from './components/UserProfileModal';
+import FilterModal from './components/FilterModal';
+import NotificationModal from './components/NotificationModal';
+import MenuTab from './components/MenuTab';
+import StatsTab from './components/StatsTab';
+import SettingsTab from './components/SettingsTab';
 import styles from './Home.styles';
 import { Alert } from 'react-native';
 import HistoryTab from './components/HistoryTab';
@@ -168,6 +174,12 @@ const Home = ({ onNavigate }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isProfileVisible, setIsProfileVisible] = useState(false);
 
+  // Filter and Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showNotiModal, setShowNotiModal] = useState(false);
+
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const sidebarWidth = useRef(new Animated.Value(240)).current;
 
@@ -253,6 +265,17 @@ const Home = ({ onNavigate }) => {
       setLoading(false);
     }
   };
+
+  const filteredTables = useMemo(() => {
+    let result = tables;
+    if (statusFilter !== 'ALL') {
+      result = result.filter(t => t.status === statusFilter);
+    }
+    if (searchQuery) {
+      result = result.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    return result;
+  }, [tables, statusFilter, searchQuery]);
 
   const hour = new Date().getHours();
   let shiftText = '';
@@ -378,16 +401,28 @@ const Home = ({ onNavigate }) => {
       <View style={styles.headerRight}>
         <View style={styles.searchBar}>
           <Search size={18} color="#94A3B8" strokeWidth={2} />
-          <Text style={styles.searchText}>Search Table...</Text>
+          <TextInput 
+            style={[styles.searchText, { flex: 1, height: 40, padding: 0 }]}
+            placeholder="Tìm kiếm bàn..."
+            placeholderTextColor="#94A3B8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
 
-        <View style={styles.iconBtnSquare}>
+        <TouchableOpacity style={styles.iconBtnSquare} onPress={() => setShowFilterModal(true)}>
           <Sliders size={20} color="#64748B" strokeWidth={1.5} />
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.iconBtnSquare}>
+        <TouchableOpacity style={styles.iconBtnSquare} onPress={() => setShowNotiModal(true)}>
           <Bell size={20} color="#FF9800" strokeWidth={1.5} />
-        </View>
+          {/* Notification Badge */}
+          <View style={{
+            position: 'absolute', top: 6, right: 6, width: 8, height: 8,
+            backgroundColor: '#EF4444', borderRadius: 4,
+            borderWidth: 1.5, borderColor: '#FFFFFF'
+          }} />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -411,7 +446,7 @@ const Home = ({ onNavigate }) => {
               <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator size="large" color="#8BA367" /></View>
             ) : (
               <FlatList
-                data={tables}
+                data={filteredTables}
                 renderItem={({ item }) => <TableCard item={item} onNavigate={onNavigate} />}
                 keyExtractor={t => t.id}
                 numColumns={4}
@@ -424,6 +459,12 @@ const Home = ({ onNavigate }) => {
           </>
         ) : activeMenu === 'HISTORY' ? (
           <HistoryTab />
+        ) : activeMenu === 'MENU' ? (
+          <MenuTab />
+        ) : activeMenu === 'STATS' ? (
+          <StatsTab />
+        ) : activeMenu === 'SETTINGS' ? (
+          <SettingsTab user={currentUser} onLogout={handleLogout} />
         ) : (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <Text style={{ fontSize: 24, color: '#94A3B8', fontWeight: '800' }}>
@@ -432,6 +473,17 @@ const Home = ({ onNavigate }) => {
           </View>
         )}
       </View>
+      
+      <FilterModal 
+        isVisible={showFilterModal} 
+        onClose={() => setShowFilterModal(false)} 
+        currentFilter={statusFilter}
+        onSelectFilter={setStatusFilter}
+      />
+      <NotificationModal 
+        isVisible={showNotiModal} 
+        onClose={() => setShowNotiModal(false)} 
+      />
     </View>
   );
 };

@@ -84,21 +84,23 @@ export default {
   },
   inputWrap: {
     marginBottom: 24,
-  },
-  input: {
-    height: 54,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: '#1E293B',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
+  },
+  input: {
+    height: 54,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 15,
   },
   pwInputWrap: {
     flexDirection: 'row',
@@ -127,7 +129,7 @@ export default {
     fontWeight: '700',
     fontStyle: 'italic',
     textAlign: 'right',
-    marginTop: 12,
+    marginTop: 4,
     marginBottom: 32,
   },
   btnWrapper: {
@@ -161,5 +163,13 @@ export default {
   linkText: {
     color: '#4A924C',
     fontWeight: '800',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    marginTop: 6,
+    textAlign: 'left',
+    fontWeight: '500',
+    paddingLeft: 4,
   },
 };

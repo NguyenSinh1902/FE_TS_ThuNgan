@@ -57,12 +57,14 @@ const Login = ({ onNavigate }) => {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ email và mật khẩu');
+      setErrorMessage('Vui lòng nhập đầy đủ email và mật khẩu');
       return;
     }
+    setErrorMessage('');
 
     try {
       setLoading(true);
@@ -78,11 +80,11 @@ const Login = ({ onNavigate }) => {
         // Điều hướng đến Home
         onNavigate('Home', { reset: true });
       } else {
-        Alert.alert('Lỗi', 'Thông tin đăng nhập không chính xác');
+        setErrorMessage('Thông tin đăng nhập không chính xác');
       }
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.';
-      Alert.alert('Đăng nhập thất bại', errorMsg);
+      setErrorMessage(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -91,32 +93,40 @@ const Login = ({ onNavigate }) => {
   return (
     <AuthLayout onNavigate={onNavigate} title="Đăng nhập Hệ thống">
       
-      <View style={s.inputWrap}>
+      <View style={[s.inputWrap, errorMessage ? { borderColor: '#EF4444' } : null]}>
         <TextInput
           style={s.input}
           placeholder="Email"
           placeholderTextColor="#94A3B8"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(text) => {
+            setEmail(text);
+            if (errorMessage) setErrorMessage('');
+          }}
           autoCapitalize="none"
           keyboardType="email-address"
         />
       </View>
 
-      <View style={s.pwInputWrap}>
+      <View style={[s.pwInputWrap, errorMessage ? { borderColor: '#EF4444' } : null]}>
         <TextInput
           style={s.pwInput}
           placeholder="Mật khẩu"
           placeholderTextColor="#94A3B8"
           secureTextEntry={!showPw}
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(text) => {
+            setPassword(text);
+            if (errorMessage) setErrorMessage('');
+          }}
         />
         <TouchableOpacity onPress={() => setShowPw(!showPw)}>
           <Text style={{fontSize: 20}}>{showPw ? '🙈' : '👁️'}</Text>
         </TouchableOpacity>
       </View>
-      
+
+      {errorMessage ? <Text style={s.errorText}>{errorMessage}</Text> : null}
+
       <TouchableOpacity>
         <Text style={s.forgotPwText}>Quên mật khẩu?</Text>
       </TouchableOpacity>

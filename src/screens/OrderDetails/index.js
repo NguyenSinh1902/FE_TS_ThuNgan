@@ -933,12 +933,12 @@ const OrderDetails = ({ onNavigate, params }) => {
                 />
               </View>
               <TouchableOpacity style={styles.searchSquareBtn} onPress={handleCheckVoucherCode} disabled={checkingVoucher}>
-                {checkingVoucher 
+                {checkingVoucher
                   ? <ActivityIndicator color="#FFF" size="small" />
                   : <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <Circle cx="11" cy="11" r="8" stroke="#FFF" strokeWidth="2" />
-                      <Path d="M21 21L16.65 16.65" stroke="#FFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
+                    <Circle cx="11" cy="11" r="8" stroke="#FFF" strokeWidth="2" />
+                    <Path d="M21 21L16.65 16.65" stroke="#FFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
                 }
               </TouchableOpacity>
             </View>
@@ -950,7 +950,7 @@ const OrderDetails = ({ onNavigate, params }) => {
                   const minOrder = Number(v.donToiThieu || v.giaTriDonHangToiThieu || 0);
                   const isEligible = subtotal >= minOrder;
                   const expiryDate = v.ngayHetHan ? new Date(v.ngayHetHan).toLocaleDateString('vi-VN') : 'Vô thời hạn';
-                  
+
                   // Calculate display discount
                   let discountLabel = '';
                   const giaTriGiam = Number(v.giaTriGiam || 0);
@@ -963,13 +963,13 @@ const OrderDetails = ({ onNavigate, params }) => {
                   }
 
                   return (
-                    <TouchableOpacity 
-                      key={v.idKhuyenMai} 
+                    <TouchableOpacity
+                      key={v.idKhuyenMai}
                       style={[
-                        styles.voucherCard, 
+                        styles.voucherCard,
                         isSelected && styles.voucherCardSelected,
                         !isEligible && styles.voucherCardDisabled
-                      ]} 
+                      ]}
                       onPress={() => isEligible && toggleVoucher(v.idKhuyenMai)}
                       disabled={!isEligible}
                     >
@@ -989,7 +989,7 @@ const OrderDetails = ({ onNavigate, params }) => {
 
                       {/* Dashed Line */}
                       <View style={styles.couponDashedLine} />
-                      
+
                       <View style={styles.voucherInfo}>
                         {/* Icon based on type */}
                         <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: isEligible ? '#EFF6FF' : '#F1F5F9', justifyContent: 'center', alignItems: 'center' }}>
@@ -1006,7 +1006,7 @@ const OrderDetails = ({ onNavigate, params }) => {
                               {isSelected && <Text style={{ color: '#FFF', fontSize: 10 }}>✓</Text>}
                             </View>
                           </View>
-                          
+
                           <Text style={[styles.voucherSub, { fontSize: 12, marginTop: 4 }]} numberOfLines={1}>
                             Áp dụng cho đơn từ {formatPrice(minOrder)}
                           </Text>
@@ -1078,7 +1078,7 @@ const OrderDetails = ({ onNavigate, params }) => {
           <View style={styles.receiptPaper}>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 600 }}>
               <Text style={styles.receiptBrand}>MATCHTEA COFFEE</Text>
-              <Text style={styles.receiptSubBrand}>Đ/C: 123 Đường ABC, Quận 1, TP.HCM</Text>
+              <Text style={styles.receiptSubBrand}>Đ/C: 888 Đường Lê Trọng Tấn, Q. Tân Phú, TP.HCM</Text>
 
               <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
 
@@ -1088,11 +1088,27 @@ const OrderDetails = ({ onNavigate, params }) => {
               </View>
               <View style={styles.receiptRow}>
                 <Text style={styles.receiptLabel}>Ngày:</Text>
-                <Text style={styles.receiptValue}>{new Date().toLocaleDateString('vi-VN')}</Text>
+                <Text style={styles.receiptValue}>
+                  {(() => {
+                    // Ưu tiên ngày giờ hiện tại nếu đơn chưa thanh toán xong
+                    const isSettled = currentStatus === 'DA_THANH_TOAN' || currentStatus === 'HOAN_TAT';
+                    const date = isSettled
+                      ? (invoice?.thoiGianThanhToan || invoice?.thoiGianTao || new Date())
+                      : new Date();
+
+                    return new Date(date).toLocaleString('vi-VN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+                  })()}
+                </Text>
               </View>
               <View style={styles.receiptRow}>
                 <Text style={styles.receiptLabel}>Thu ngân:</Text>
-                <Text style={styles.receiptValue}>Nguyễn Văn A</Text>
+                <Text style={styles.receiptValue}>Lê Thị Ngọc</Text>
               </View>
 
               {foundMember && (

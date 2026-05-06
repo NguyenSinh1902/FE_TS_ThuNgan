@@ -40,7 +40,7 @@ axiosClient.interceptors.response.use(
       message = error.message || message;
     }
 
-    console.error('API Error Details::', {
+    console.log('API Error Details::', {
       status: error.response?.status,
       message: message,
       data: error.response?.data
