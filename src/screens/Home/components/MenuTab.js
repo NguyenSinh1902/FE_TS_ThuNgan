@@ -1,20 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, ImageBackground, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, ImageBackground, Dimensions, RefreshControl } from 'react-native';
 import productApi from '../../../api/productApi';
 
 const { width } = Dimensions.get('window');
 
 const MenuTab = () => {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [categories, setCategories] = useState({});
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const res = await productApi.getAllProducts();
       const products = Array.isArray(res) ? res : (res?.data || []);
 
@@ -31,8 +32,14 @@ const MenuTab = () => {
     } catch (err) {
       console.log('Fetch menu error:', err);
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
+      if (isRefresh) setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProducts(true);
   };
 
   const renderVariants = (variants) => {
@@ -58,7 +65,7 @@ const MenuTab = () => {
     );
   };
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.loadingWrap}>
         <ActivityIndicator size="large" color="#4A924C" />
@@ -81,7 +88,11 @@ const MenuTab = () => {
         {/* Khung viền Vintage */}
         <View style={styles.vintageBorder}>
           
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4A924C']} />}
+          >
             {/* Tiêu đề Menu */}
             <View style={styles.headerWrap}>
               <Text style={styles.decorIcon}>🍃</Text>

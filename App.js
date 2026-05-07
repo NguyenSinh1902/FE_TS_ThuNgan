@@ -13,8 +13,11 @@ import Payment from './src/screens/Payment';
 import PaymentSuccess from './src/screens/PaymentSuccess';
 import Report from './src/screens/Report';
 
-import { StatusBar, View, ActivityIndicator } from 'react-native';
+import { StatusBar, View, ActivityIndicator, LogBox } from 'react-native';
 import safeAsyncStorage from './src/utils/storage';
+
+// Ẩn toàn bộ cảnh báo LogBox (khung đen dưới màn hình) trên toàn app
+LogBox.ignoreAllLogs();
 
 const Stack = createNativeStackNavigator();
 

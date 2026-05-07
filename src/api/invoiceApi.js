@@ -28,6 +28,9 @@ const invoiceApi = {
   completeOrder: (id) => {
     return axiosClient.post(`/hoa-don/${id}/hoan-tat`);
   },
+  cancelOrder: (id) => {
+    return axiosClient.delete(`/hoa-don/${id}/huy`);
+  },
 };
 
 export default invoiceApi;

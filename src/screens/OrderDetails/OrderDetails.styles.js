@@ -111,9 +111,10 @@ export default StyleSheet.create({
   grandTotalLabel: { fontSize: 16, fontWeight: '800', color: '#1E293B', letterSpacing: 0.5 },
   grandTotalValue: { fontSize: 28, fontWeight: '900', color: '#E11D48' },
 
-  mainPaymentBtn: { marginTop: 24, borderRadius: 28, overflow: 'hidden', shadowColor: '#8BA367', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.25, shadowRadius: 24, elevation: 12 },
-  mainPaymentBtnInner: { paddingVertical: 22, alignItems: 'center', justifyContent: 'center' },
-  mainPaymentBtnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', letterSpacing: 1.5 },
+  actionBtnRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  actionBtnBase: { borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6 },
+  actionBtnInner: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  actionBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
 
   // Summary Items (used in footer box)
   grandTotalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
@@ -539,4 +540,12 @@ export default StyleSheet.create({
     zIndex: 9999,
   },
   toastText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  toastWarning: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  toastTextWarning: {
+    color: '#D97706',
+  },
 });

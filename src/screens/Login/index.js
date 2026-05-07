@@ -71,6 +71,13 @@ const Login = ({ onNavigate }) => {
       const response = await authApi.login({ email, matKhau: password });
       
       if (response.token) {
+        // Kiểm tra quyền hạn: Chặn nhân viên PHUC_VU đăng nhập vào app Thu ngân
+        if (response.user?.vaiTro === 'PHUC_VU') {
+          setErrorMessage('Tài khoản của bạn không có quyền truy cập vào hệ thống Thu ngân. Vui lòng liên hệ quản lý!');
+          setLoading(false);
+          return;
+        }
+
         // Lưu token và id người dùng
         await safeAsyncStorage.setItem('token', response.token);
         if (response.user?.idNhanVien) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Dimensions, TouchableOpacity, RefreshControl } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, Award, Clock, ArrowRight, User, MapPin, History } from 'lucide-react-native';
 import statsApi from '../../../api/statsApi';
@@ -9,6 +9,7 @@ const { width } = Dimensions.get('window');
 
 const StatsTab = () => {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
 
@@ -16,9 +17,9 @@ const StatsTab = () => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const [statsRes, invoicesRes] = await Promise.all([
         statsApi.getDashboardData(),
         invoiceApi.getAll()
@@ -34,11 +35,17 @@ const StatsTab = () => {
     } catch (err) {
       console.log('Fetch stats error:', err);
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
+      if (isRefresh) setRefreshing(false);
     }
   };
 
-  if (loading || !data) {
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData(true);
+  };
+
+  if ((loading && !refreshing) || !data) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#4A924C" />
@@ -67,7 +74,11 @@ const StatsTab = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4A924C']} />}
+      >
         
         {/* Row 1: Quick Stats */}
         <View style={styles.row}>
@@ -129,7 +140,7 @@ const StatsTab = () => {
                   <View style={styles.productProgressWrap}>
                     <View style={[styles.progressBar, { width: `${(item.soLuong / data.top5BanChay[0].soLuong) * 100}%` }]} />
                   </View>
-                  <Text style={styles.productQty}>{item.soLuong} món</Text>
+                  <Text style={styles.productQty}>{item.soLuong} phần</Text>
                 </View>
               ))}
             </View>

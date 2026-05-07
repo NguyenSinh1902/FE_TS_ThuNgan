@@ -10,12 +10,14 @@ import {
   StyleSheet,
   Image,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Users, Clock, Bell, Grid, FileText, BarChart2, Settings, User, Search, Sliders, Coffee } from 'lucide-react-native';
 import tableApi from '../../api/tableApi';
 import invoiceApi from '../../api/invoiceApi';
 import staffApi from '../../api/staffApi';
+import reservationApi from '../../api/reservationApi';
 import safeAsyncStorage from '../../utils/storage';
 import TakeawayTab from './TakeawayTab';
 import UserProfileModal from './components/UserProfileModal';
@@ -131,7 +133,7 @@ const TableCard = React.memo(({ item, onNavigate }) => {
           <View style={styles.timeWrap}>
             <Users size={16} color="#1E293B" strokeWidth={2.5} />
             <Text style={styles.cardRow2Text}>
-              {item.status === 'AVAILABLE' ? `0 Khách` : `4 Khách`}
+              {item.status === 'AVAILABLE' ? `0 Khách` : `${item.reservation?.soLuongNguoi || 1} Khách`}
             </Text>
           </View>
           <View style={styles.timeWrap}>
@@ -171,6 +173,7 @@ const Home = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState('AT_TABLE');
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isProfileVisible, setIsProfileVisible] = useState(false);
 
@@ -229,24 +232,37 @@ const Home = ({ onNavigate }) => {
     );
   };
 
-  const fetchData = async () => {
+  const fetchData = async (isRefresh = false) => {
     try {
-      setLoading(true);
-      const [tableRes, invoiceRes] = await Promise.all([
+      if (!isRefresh) setLoading(true);
+      const [tableRes, invoiceRes, reservationRes] = await Promise.all([
         tableApi.getTables(),
-        invoiceApi.getInvoicesByType('TAI_BAN')
+        invoiceApi.getInvoicesByType('TAI_BAN'),
+        reservationApi.getActiveReservations()
       ]);
 
       if (tableRes) {
         const invoices = Array.isArray(invoiceRes) ? invoiceRes : [];
+        const reservations = Array.isArray(reservationRes) ? reservationRes : [];
         const mappedTables = tableRes.map(t => {
           let status = 'AVAILABLE';
           if (t.tinhTrangBan === 'CO_KHACH') status = 'OCCUPIED';
           else if (t.tinhTrangBan === 'DA_DAT') status = 'RESERVED';
 
           let invoiceData = null;
+          let activeReservation = null;
           if (status === 'OCCUPIED' || status === 'RESERVED') {
-            invoiceData = invoices.find(inv => inv.danhSachTenBan?.includes(t.tenBan));
+            // 1. Tìm phiếu đặt đang hoạt động của bàn này trước
+            activeReservation = reservations.find(r => r.danhSachBan?.some(b => b.tenBan === t.tenBan));
+            
+            // 2. Chỉ lấy hóa đơn gắn liền với phiếu đặt ĐANG HOẠT ĐỘNG đó
+            if (activeReservation) {
+              invoiceData = invoices.find(inv => 
+                inv.idPhieuDat === activeReservation.idPhieuDat && 
+                inv.trangThai !== 'HOAN_TAT' && 
+                inv.trangThai !== 'DA_HUY'
+              );
+            }
           }
 
           return {
@@ -254,7 +270,8 @@ const Home = ({ onNavigate }) => {
             name: t.tenBan,
             status: status,
             capacity: t.sucChua,
-            invoice: invoiceData
+            invoice: invoiceData,
+            reservation: activeReservation
           };
         });
         setTables(mappedTables);
@@ -262,8 +279,14 @@ const Home = ({ onNavigate }) => {
     } catch (error) {
       console.error('Fetch data failed:', error);
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
+      if (isRefresh) setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData(true);
   };
 
   const filteredTables = useMemo(() => {
@@ -442,7 +465,7 @@ const Home = ({ onNavigate }) => {
             <TopHeader />
             {activeTab === 'TAKEAWAY' ? (
               <TakeawayTab onNavigate={onNavigate} />
-            ) : loading ? (
+            ) : loading && !refreshing ? (
               <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator size="large" color="#8BA367" /></View>
             ) : (
               <FlatList
@@ -454,6 +477,13 @@ const Home = ({ onNavigate }) => {
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={['#8BA367']}
+                  />
+                }
               />
             )}
           </>

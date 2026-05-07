@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
   TouchableWithoutFeedback,
   ActivityIndicator,
   Dimensions,
-  Image
+  Image,
+  Alert
 } from 'react-native';
 
 import LinearGradient from 'react-native-linear-gradient';
@@ -19,9 +20,13 @@ import invoiceApi from '../../api/invoiceApi';
 import promotionApi from '../../api/promotionApi';
 import reservationApi from '../../api/reservationApi';
 import customerApi from '../../api/customerApi';
+import staffApi from '../../api/staffApi';
+import safeAsyncStorage from '../../utils/storage';
 import NewMemberModal from './components/NewMemberModal';
 import MemberModal from './components/MemberModal';
 import styles from './OrderDetails.styles';
+import { captureRef } from 'react-native-view-shot';
+import Share from 'react-native-share';
 
 
 
@@ -45,6 +50,7 @@ const OrderDetails = ({ onNavigate, params }) => {
 
   const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('CHO_XAC_NHAN');
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Customer / Membership
   const [searchPhone, setSearchPhone] = useState('');
@@ -80,6 +86,39 @@ const OrderDetails = ({ onNavigate, params }) => {
   // Invoice / Receipt
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [toast, setToast] = useState(null);
+  const [toastType, setToastType] = useState('success');
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  
+  const receiptRef = useRef();
+
+  const handleDownloadInvoice = async () => {
+    let uri;
+    try {
+      uri = await captureRef(receiptRef, {
+        format: 'png',
+        quality: 1.0,
+      });
+    } catch (err) {
+      console.log('Capture error', err);
+      handleShowToast('Không thể tạo file ảnh hóa đơn', 'warning');
+      return;
+    }
+
+    try {
+      await Share.open({
+        url: uri,
+        title: 'Hóa đơn MatchTea',
+        message: 'Hóa đơn mua hàng tại MatchTea Coffee',
+      });
+      setShowReceiptModal(false);
+      handleShowToast('Thao tác thành công!', 'success');
+    } catch (err) {
+      // Khi người dùng bấm In hoặc Share xong, Android đôi khi không trả về kết quả chuẩn mà ném ra exception "cancel"
+      // Nên ta cứ mặc định là họ đã thao tác thành công hoặc chủ động đóng.
+      setShowReceiptModal(false);
+      handleShowToast('Thao tác thành công!', 'success');
+    }
+  };
 
   // Remove real-time search via useEffect - replace with manual button search
 
@@ -92,7 +131,20 @@ const OrderDetails = ({ onNavigate, params }) => {
     fetchFees();
     fetchVouchers();
     fetchReservation();
+    fetchUserProfile();
   }, [params?.invoiceId, params?.tableName]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const userId = await safeAsyncStorage.getItem('userId');
+      if (userId) {
+        const profile = await staffApi.getProfile(userId);
+        setCurrentUser(profile);
+      }
+    } catch (error) {
+      console.error('Fetch profile failed:', error);
+    }
+  };
 
   const fetchReservation = async () => {
     try {
@@ -228,9 +280,10 @@ const OrderDetails = ({ onNavigate, params }) => {
     }
   };
 
-  const handleShowToast = (msg) => {
+  const handleShowToast = (msg, type = 'success') => {
     setToast(msg);
-    setTimeout(() => setToast(null), 3000);
+    setToastType(type);
+    setTimeout(() => setToast(null), 1000);
   };
 
   const handlePrintInvoice = () => {
@@ -278,6 +331,35 @@ const OrderDetails = ({ onNavigate, params }) => {
       setIsStatusModalVisible(false);
     } catch (err) {
       console.error('Failed to update status:', err);
+      if (err.response && err.response.data && err.response.data.message) {
+        handleShowToast(err.response.data.message, 'warning');
+      } else {
+        handleShowToast('Có lỗi xảy ra khi cập nhật trạng thái', 'warning');
+      }
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleCancelOrder = () => {
+    setShowCancelModal(true);
+  };
+
+  const confirmCancelOrder = async () => {
+    try {
+      setShowCancelModal(false);
+      setUpdatingStatus(true);
+      await invoiceApi.cancelOrder(params.invoiceId);
+      setCurrentStatus('DA_HUY');
+      handleShowToast('Đã hủy đơn hàng thành công', 'success');
+      setTimeout(() => onNavigate('Home'), 1500);
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+      if (err.response && err.response.data && err.response.data.message) {
+        handleShowToast(err.response.data.message, 'warning');
+      } else {
+        handleShowToast('Có lỗi xảy ra khi hủy đơn hàng', 'warning');
+      }
     } finally {
       setUpdatingStatus(false);
     }
@@ -618,19 +700,37 @@ const OrderDetails = ({ onNavigate, params }) => {
                   <Text style={styles.grandTotalValue}>{formatPrice(total)}</Text>
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.mainPaymentBtn, (currentStatus === 'HOAN_TAT' || currentStatus === 'DA_HUY') && { opacity: 0.5 }]}
-                  onPress={handleOpenPayment}
-                  disabled={currentStatus === 'HOAN_TAT' || currentStatus === 'DA_HUY'}
-                >
-                  <LinearGradient
-                    colors={['#8BA367', '#6B824F']}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={styles.mainPaymentBtnInner}
+                <View style={styles.actionBtnRow}>
+                  {currentStatus !== 'HOAN_TAT' && currentStatus !== 'DA_HUY' && (
+                    <TouchableOpacity
+                      style={[styles.actionBtnBase, { flex: 1 }]}
+                      onPress={handleCancelOrder}
+                      disabled={updatingStatus}
+                    >
+                      <LinearGradient
+                        colors={['#FCA5A5', '#E11D48']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        style={styles.actionBtnInner}
+                      >
+                        <Text style={styles.actionBtnText}>HỦY ĐƠN</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={[styles.actionBtnBase, { flex: 1 }, (currentStatus === 'HOAN_TAT' || currentStatus === 'DA_HUY') && { opacity: 0.5 }]}
+                    onPress={handleOpenPayment}
+                    disabled={currentStatus === 'HOAN_TAT' || currentStatus === 'DA_HUY'}
                   >
-                    <Text style={styles.mainPaymentBtnText}>XÁC NHẬN THANH TOÁN</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={['#A2CB6B', '#4D7521']}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                      style={styles.actionBtnInner}
+                    >
+                      <Text style={styles.actionBtnText}>XÁC NHẬN THANH TOÁN</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -812,16 +912,28 @@ const OrderDetails = ({ onNavigate, params }) => {
                     <Text style={styles.modalSubtitle}>Đơn hàng đã được chuyển sang trạng thái Đã thanh toán.</Text>
                   </View>
 
-                  <TouchableOpacity
-                    style={[styles.payBtn, { width: '100%', height: 60, backgroundColor: '#1B3B14' }]}
-                    onPress={handleCompleteOrder}
-                    disabled={completingOrder}
-                  >
-                    {completingOrder
-                      ? <ActivityIndicator color="white" />
-                      : <Text style={styles.payBtnText}>Hoàn tất & Giải phóng bàn</Text>
-                    }
-                  </TouchableOpacity>
+                  {isTakeaway ? (
+                    <TouchableOpacity
+                      style={[styles.payBtn, { width: '100%', height: 60, backgroundColor: '#1B3B14' }]}
+                      onPress={() => {
+                        setIsPaymentModalVisible(false);
+                        onNavigate('Home');
+                      }}
+                    >
+                      <Text style={styles.payBtnText}>Hoàn tất</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.payBtn, { width: '100%', height: 60, backgroundColor: '#1B3B14' }]}
+                      onPress={handleCompleteOrder}
+                      disabled={completingOrder}
+                    >
+                      {completingOrder
+                        ? <ActivityIndicator color="white" />
+                        : <Text style={styles.payBtnText}>Hoàn tất & Giải phóng bàn</Text>
+                      }
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>
@@ -1077,10 +1189,11 @@ const OrderDetails = ({ onNavigate, params }) => {
         <View style={styles.receiptModalOverlay}>
           <View style={styles.receiptPaper}>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 600 }}>
-              <Text style={styles.receiptBrand}>MATCHTEA COFFEE</Text>
-              <Text style={styles.receiptSubBrand}>Đ/C: 888 Đường Lê Trọng Tấn, Q. Tân Phú, TP.HCM</Text>
+              <View ref={receiptRef} collapsable={false} style={{ backgroundColor: '#FFF', padding: 10 }}>
+                <Text style={styles.receiptBrand}>MATCHTEA COFFEE</Text>
+                <Text style={styles.receiptSubBrand}>Đ/C: 888 Đường Lê Trọng Tấn, Q. Tân Phú, TP.HCM</Text>
 
-              <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+                <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
 
               <View style={styles.receiptRow}>
                 <Text style={styles.receiptLabel}>Bàn:</Text>
@@ -1108,7 +1221,7 @@ const OrderDetails = ({ onNavigate, params }) => {
               </View>
               <View style={styles.receiptRow}>
                 <Text style={styles.receiptLabel}>Thu ngân:</Text>
-                <Text style={styles.receiptValue}>Lê Thị Ngọc</Text>
+                <Text style={styles.receiptValue}>{currentUser?.hoTen || 'Thu ngân'}</Text>
               </View>
 
               {foundMember && (
@@ -1183,14 +1296,54 @@ const OrderDetails = ({ onNavigate, params }) => {
               <Text style={{ textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 20, fontStyle: 'italic' }}>
                 Cảm ơn quý khách. Hẹn gặp lại!
               </Text>
+              </View>
             </ScrollView>
 
-            <TouchableOpacity
-              style={[styles.payBtn, { marginTop: 20, backgroundColor: '#1E293B' }]}
-              onPress={() => setShowReceiptModal(false)}
-            >
-              <Text style={styles.payBtnText}>ĐÓNG</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <TouchableOpacity
+                style={[styles.payBtn, { flex: 1, backgroundColor: '#4A924C' }]}
+                onPress={handleDownloadInvoice}
+              >
+                <Text style={styles.payBtnText}>LƯU & CHIA SẺ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payBtn, { flex: 1, backgroundColor: '#1E293B' }]}
+                onPress={() => setShowReceiptModal(false)}
+              >
+                <Text style={styles.payBtnText}>ĐÓNG</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Confirmation Modal */}
+      <Modal visible={showCancelModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { width: 400, alignItems: 'center', paddingVertical: 40 }]}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
+              <Svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                <Path d="M12 9V11M12 15H12.01M5.07183 19H18.9282C20.4678 19 21.4301 17.3333 20.6603 16L13.7321 4C12.9623 2.66667 11.0377 2.66667 10.2679 4L3.33975 16C2.56995 17.3333 3.5322 19 5.07183 19Z" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </Svg>
+            </View>
+            <Text style={[styles.modalTitle, { textAlign: 'center', fontSize: 24, color: '#1E293B', marginBottom: 12 }]}>Xác nhận hủy đơn</Text>
+            <Text style={[styles.modalSubtitle, { textAlign: 'center', fontSize: 16, marginBottom: 36, lineHeight: 24, paddingHorizontal: 20 }]}>Bạn có chắc chắn muốn hủy đơn hàng này không? Hành động này không thể hoàn tác.</Text>
+            
+            <View style={{ flexDirection: 'row', gap: 16, width: '100%' }}>
+              <TouchableOpacity
+                style={{ flex: 1, height: 56, borderRadius: 20, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => setShowCancelModal(false)}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#64748B' }}>Đóng lại</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={{ flex: 1, height: 56, borderRadius: 20, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 8 }}
+                onPress={confirmCancelOrder}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>Hủy đơn ngay</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1198,9 +1351,15 @@ const OrderDetails = ({ onNavigate, params }) => {
       {/* 🔔 TOAST MESSAGE (Wrapped in Modal to be on top of other modals) */}
       <Modal visible={!!toast} transparent animationType="fade">
         <View style={{ flex: 1, pointerEvents: 'none' }}>
-          <View style={styles.toastContainer}>
-            <Text style={{ fontSize: 18 }}>✨</Text>
-            <Text style={styles.toastText}>{toast}</Text>
+          <View style={[
+            styles.toastContainer,
+            toastType === 'warning' ? styles.toastWarning : {}
+          ]}>
+            <Text style={{ fontSize: 18 }}>{toastType === 'warning' ? '⚠️' : '✨'}</Text>
+            <Text style={[
+              styles.toastText,
+              toastType === 'warning' ? styles.toastTextWarning : {}
+            ]}>{toast}</Text>
           </View>
         </View>
       </Modal>

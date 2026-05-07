@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Image, Alert, RefreshControl } from 'react-native';
 import { User, Bell, Printer, ShieldCheck, Globe, Moon, CircleHelp, LogOut, ChevronRight, Smartphone } from 'lucide-react-native';
 
 const SettingsTab = ({ user, onLogout }) => {
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [autoPrint, setAutoPrint] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  };
 
   const SettingItem = ({ icon, title, subtitle, value, onValueChange, isSwitch, onPress, destructive }) => (
     <TouchableOpacity 
@@ -35,7 +43,12 @@ const SettingsTab = ({ user, onLogout }) => {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={styles.scrollContent} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4A924C']} />}
+    >
       
       {/* Profile Header */}
       <View style={styles.profileCard}>
