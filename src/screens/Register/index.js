@@ -4,6 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import authApi from '../../api/authApi';
 import safeAsyncStorage from '../../utils/storage';
 import s from './styles';
+import CustomAlert from '../../components/CustomAlert';
 
 const AuthLayout = ({ children, onNavigate, title }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -61,6 +62,7 @@ const Register = ({ onNavigate }) => {
   const [showPw, setShowPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info', buttons: [] });
 
   useEffect(() => {
     const restoreForm = async () => {
@@ -76,12 +78,12 @@ const Register = ({ onNavigate }) => {
 
   const handleRegister = async () => {
     if (!name || !email || !phone || !password || !confirmPassword) {
-      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
+      setAlert({ visible: true, title: 'Lỗi', message: 'Vui lòng điền đầy đủ thông tin', type: 'error' });
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp');
+      setAlert({ visible: true, title: 'Lỗi', message: 'Mật khẩu xác nhận không khớp', type: 'error' });
       return;
     }
 
@@ -101,14 +103,19 @@ const Register = ({ onNavigate }) => {
       await safeAsyncStorage.setItem('pending_name', name);
       await safeAsyncStorage.setItem('pending_phone', phone);
       
-      Alert.alert(
-        'Thành công',
-        'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra.',
-        [{ text: 'OK', onPress: () => onNavigate('VerifyOTP', { email: email }) }]
-      );
+      setAlert({
+        visible: true,
+        title: 'Thành công',
+        message: 'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra.',
+        type: 'success',
+        buttons: [{ text: 'OK', onPress: () => {
+          setAlert({ visible: false, title: '', message: '', type: 'info', buttons: [] });
+          onNavigate('VerifyOTP', { email: email });
+        }}]
+      });
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Đăng ký không thành công. Vui lòng thử lại.';
-      Alert.alert('Lỗi đăng ký', errorMsg);
+      setAlert({ visible: true, title: 'Lỗi đăng ký', message: errorMsg, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -202,6 +209,15 @@ const Register = ({ onNavigate }) => {
           Đã có tài khoản? <Text style={s.linkText}>Đăng nhập ngay</Text>
         </Text>
       </TouchableOpacity>
+
+      <CustomAlert 
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        buttons={alert.buttons}
+        onClose={() => setAlert({ ...alert, visible: false })}
+      />
     </AuthLayout>
   );
 };

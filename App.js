@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import Start from './src/screens/Start';
 import Login from './src/screens/Login';
+import ForgotPassword from './src/screens/Login/ForgotPassword';
 import Register from './src/screens/Register';
 import VerifyOTP from './src/screens/Register/VerifyOTP';
 import Home from './src/screens/Home';
@@ -82,6 +83,7 @@ const App = () => {
       >
         <Stack.Screen name="Start" component={renderScreen(Start)} />
         <Stack.Screen name="Login" component={renderScreen(Login)} />
+        <Stack.Screen name="ForgotPassword" component={renderScreen(ForgotPassword)} />
         <Stack.Screen name="Register" component={renderScreen(Register)} />
         <Stack.Screen name="VerifyOTP" component={renderScreen(VerifyOTP)} />
         <Stack.Screen name="Home" component={renderScreen(Home)} />

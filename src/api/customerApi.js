@@ -8,6 +8,7 @@ const customerApi = {
       (Array.isArray(res) ? res : []).find(kh => kh.soDienThoai === phone) || null
     ),
   create: (data) => axiosClient.post('/khach-hang', data),
+  getHistory: (id) => axiosClient.get(`/hoa-don/khach-hang/${id}/lich-su`),
 };
 
 export default customerApi;

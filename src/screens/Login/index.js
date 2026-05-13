@@ -134,7 +134,7 @@ const Login = ({ onNavigate }) => {
 
       {errorMessage ? <Text style={s.errorText}>{errorMessage}</Text> : null}
 
-      <TouchableOpacity>
+      <TouchableOpacity onPress={() => onNavigate('ForgotPassword')}>
         <Text style={s.forgotPwText}>Quên mật khẩu?</Text>
       </TouchableOpacity>
 

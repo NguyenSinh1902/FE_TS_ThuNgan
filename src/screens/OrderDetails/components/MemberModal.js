@@ -55,44 +55,207 @@ const CloseIcon = ({ color = '#475569' }) => (
   </Svg>
 );
 
-// ─── Order History Sub-Modal ────────────────────────────────────
-const HistoryModal = ({ visible, onClose, orders }) => (
-  <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
-    <View style={s.historyOverlay}>
-      <View style={s.historyCard}>
-        <View style={s.historyHeader}>
-          <Text style={s.historyTitle}>📋 Lịch sử mua hàng</Text>
-          <TouchableOpacity style={s.closeBtnInner} onPress={onClose}>
-            <CloseIcon />
-          </TouchableOpacity>
-        </View>
-        {orders.length === 0 ? (
-          <View style={s.historyEmpty}>
-            <Text style={s.historyEmptyText}>Chưa có đơn hàng nào</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={orders}
-            keyExtractor={(_, i) => String(i)}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={s.historySep} />}
-            renderItem={({ item }) => (
-              <View style={s.historyItem}>
-                <View>
-                  <Text style={s.historyOrderId}>#{item.idHoaDon || item.id}</Text>
-                  <Text style={s.historyDate}>{item.ngayTao || item.createdAt || ''}</Text>
-                </View>
-                <Text style={s.historyAmount}>
-                  {(item.tongTien || 0).toLocaleString('vi-VN')}đ
-                </Text>
-              </View>
-            )}
-          />
-        )}
+// ─── Order History Item (Simple Box) ──────────────────────────────
+const HistoryItem = ({ item, onPress }) => (
+  <TouchableOpacity 
+    style={s.historyItemCard} 
+    onPress={onPress}
+    activeOpacity={0.85}
+  >
+    <View style={s.historyItemHeader}>
+      <View>
+        <Text style={s.historyOrderId}>HĐ #{item.idHoaDon || item.id}</Text>
+        <Text style={s.historyDate}>
+          {new Date(item.thoiGianTao).toLocaleString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </Text>
+      </View>
+      <View style={[
+        s.statusBadge, 
+        { backgroundColor: item.trangThai === 'HOAN_TAT' ? '#DCFCE7' : '#FEF3C7' }
+      ]}>
+        <Text style={[
+          s.statusText, 
+          { color: item.trangThai === 'HOAN_TAT' ? '#15803D' : '#B45309' }
+        ]}>
+          {item.trangThai === 'HOAN_TAT' ? 'Hoàn tất' : item.trangThai}
+        </Text>
       </View>
     </View>
-  </Modal>
+    
+    <View style={s.historyItemFooter}>
+      <Text style={s.historyTotalLabel}>Tổng thanh toán:</Text>
+      <Text style={s.historyTotalValue}>{(item.tongThanhToan || 0).toLocaleString('vi-VN')}đ</Text>
+    </View>
+  </TouchableOpacity>
 );
+
+// ─── Order History Modal ──────────────────────────────────────────
+const HistoryModal = ({ visible, onClose, orders }) => {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  useEffect(() => {
+    if (!visible) {
+      setSelectedOrder(null);
+    }
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
+      <View style={s.historyOverlay}>
+        <View style={s.historyCard}>
+          <View style={s.historyHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {selectedOrder && (
+                <TouchableOpacity onPress={() => setSelectedOrder(null)} style={s.backBtn}>
+                  <Text style={{ fontSize: 14, color: '#475569', fontWeight: '700' }}>◀</Text>
+                </TouchableOpacity>
+              )}
+              <View>
+                <Text style={s.historyTitle}>
+                  {selectedOrder ? `Chi tiết HĐ #${selectedOrder.idHoaDon || selectedOrder.id}` : '📋 Lịch sử mua hàng'}
+                </Text>
+                {!selectedOrder && (
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{orders.length} đơn hàng gần nhất</Text>
+                )}
+              </View>
+            </View>
+            <TouchableOpacity style={s.closeBtnInner} onPress={onClose}>
+              <CloseIcon />
+            </TouchableOpacity>
+          </View>
+
+          {selectedOrder ? (
+            // Chi tiết đơn hàng
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              <View style={s.detailCard}>
+                <View style={s.detailHeader}>
+                  <View style={[
+                    s.statusBadge, 
+                    { backgroundColor: selectedOrder.trangThai === 'HOAN_TAT' ? '#DCFCE7' : '#FEF3C7' }
+                  ]}>
+                    <Text style={[
+                      s.statusText, 
+                      { color: selectedOrder.trangThai === 'HOAN_TAT' ? '#15803D' : '#B45309' }
+                    ]}>
+                      {selectedOrder.trangThai === 'HOAN_TAT' ? 'Hoàn tất' : selectedOrder.trangThai}
+                    </Text>
+                  </View>
+                  <Text style={s.detailDate}>
+                    {new Date(selectedOrder.thoiGianTao).toLocaleString('vi-VN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                </View>
+
+                <View style={[s.iptDashDivider, { marginVertical: 12, height: 1, backgroundColor: '#E2E8F0' }]} />
+
+                {/* Món đã gọi */}
+                <Text style={s.detailsSectionTitle}>Món đã gọi:</Text>
+                {(selectedOrder.danhSachChiTiet || []).map((detail, idx) => {
+                  let details = detail.tenKichCo || '';
+                  try {
+                    if (detail.tuyChonJson) {
+                      const opts = JSON.parse(detail.tuyChonJson);
+                      if (opts.da) details += ` • Đá: ${opts.da}`;
+                      if (opts.duong) details += ` • Đường: ${opts.duong}`;
+                    }
+                  } catch (e) { }
+                  
+                  const toppingNames = (detail.danhSachTopping || []).map(t => t.tenTopping).join(', ');
+                  
+                  return (
+                    <View key={idx} style={{ marginBottom: 10, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 10 }}>
+                      <View style={s.historyDetailRow}>
+                        <Text style={[s.historyDetailName, { fontWeight: '700', color: '#0F172A' }]} numberOfLines={1}>{detail.tenSanPham}</Text>
+                        <Text style={s.historyDetailQty}>x{detail.soLuong}</Text>
+                        <Text style={s.historyDetailPrice}>{(detail.thanhTien || 0).toLocaleString('vi-VN')}đ</Text>
+                      </View>
+                      <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{details}</Text>
+                      {toppingNames.length > 0 && (
+                        <Text style={{ fontSize: 12, color: '#64748B' }}>+ Topping: {toppingNames}</Text>
+                      )}
+                    </View>
+                  );
+                })}
+
+                <View style={[s.iptDashDivider, { marginVertical: 12, height: 1, backgroundColor: '#E2E8F0' }]} />
+
+                {/* Chi tiết tính tiền */}
+                <Text style={s.detailsSectionTitle}>Chi tiết thanh toán:</Text>
+                <View style={{ gap: 6, backgroundColor: '#F8FAFC', padding: 12, borderRadius: 12 }}>
+                  <View style={s.receiptRow}>
+                    <Text style={s.receiptLabel}>Tiền hàng</Text>
+                    <Text style={s.receiptValue}>{(selectedOrder.tongTienHang || 0).toLocaleString('vi-VN')}đ</Text>
+                  </View>
+                  
+                  {selectedOrder.giamGiaKhuyenMai > 0 && (
+                    <View style={s.receiptRow}>
+                      <Text style={s.receiptLabel}>Khuyến mãi</Text>
+                      <Text style={[s.receiptValue, { color: '#DC2626' }]}>-{(selectedOrder.giamGiaKhuyenMai || 0).toLocaleString('vi-VN')}đ</Text>
+                    </View>
+                  )}
+                  
+                  {selectedOrder.giamGiaThanhVien > 0 && (
+                    <View style={s.receiptRow}>
+                      <Text style={s.receiptLabel}>Giảm giá thành viên</Text>
+                      <Text style={[s.receiptValue, { color: '#DC2626' }]}>-{(selectedOrder.giamGiaThanhVien || 0).toLocaleString('vi-VN')}đ</Text>
+                    </View>
+                  )}
+                  
+                  {(selectedOrder.danhSachThuePhi || []).map((t, i) => (
+                    <View key={i} style={s.receiptRow}>
+                      <Text style={s.receiptLabel}>{t.tenThuePhi}{t.loaiGiaTri === 'PHAN_TRAM' ? ` (${t.giaTriTaiThoiDiemBan}%)` : ''}</Text>
+                      <Text style={s.receiptValue}>+{(t.soTienQuyDoi || 0).toLocaleString('vi-VN')}đ</Text>
+                    </View>
+                  ))}
+                  
+                  {selectedOrder.diemSuDung > 0 && (
+                    <View style={s.receiptRow}>
+                      <Text style={s.receiptLabel}>Cấn trừ điểm</Text>
+                      <Text style={[s.receiptValue, { color: '#DC2626' }]}>-{(selectedOrder.diemSuDung * 1000).toLocaleString('vi-VN')}đ</Text>
+                    </View>
+                  )}
+
+                  <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 4 }} />
+
+                  <View style={s.receiptRow}>
+                    <Text style={[s.receiptLabel, { fontWeight: '700', color: '#0F172A' }]}>Tổng thanh toán</Text>
+                    <Text style={[s.receiptValue, { fontSize: 16, fontWeight: '800', color: '#1B3B14' }]}>{(selectedOrder.tongThanhToan || 0).toLocaleString('vi-VN')}đ</Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          ) : (
+            // Danh sách đơn hàng
+            orders.length === 0 ? (
+              <View style={s.historyEmpty}>
+                <Text style={s.historyEmptyText}>Chưa có đơn hàng nào</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={orders}
+                keyExtractor={(item) => String(item.idHoaDon || item.id)}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                renderItem={({ item }) => <HistoryItem item={item} onPress={() => setSelectedOrder(item)} />}
+              />
+            )
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 // ─── Main Component ─────────────────────────────────────────────
 const MemberModal = ({ visible, onClose, onApplyMember, onRegisterNew, initialMember, initialPoints }) => {
@@ -157,9 +320,8 @@ const MemberModal = ({ visible, onClose, onApplyMember, onRegisterNew, initialMe
     if (!foundMember) return;
     setLoadingHistory(true);
     try {
-      // Try to fetch orders by customer id if API supports it
-      const res = await customerApi.getById(foundMember.idKhachHang || foundMember.id);
-      setHistory(res?.hoaDons || res?.orders || []);
+      const res = await customerApi.getHistory(foundMember.idKhachHang || foundMember.id);
+      setHistory(res?.content || []);
     } catch {
       setHistory([]);
     } finally {
@@ -629,7 +791,7 @@ const s = StyleSheet.create({
   historyCard: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, maxHeight: '60%',
+    padding: 24, maxHeight: '75%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.1, shadowRadius: 20,
@@ -648,10 +810,19 @@ const s = StyleSheet.create({
   historyEmptyText: {
     fontSize: 15, color: '#94A3B8',
   },
-  historySep: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 6 },
-  historyItem: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingVertical: 10,
+  historyItemCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  historyItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   historyOrderId: {
     fontSize: 15, fontWeight: '700', color: '#1E293B',
@@ -659,8 +830,97 @@ const s = StyleSheet.create({
   historyDate: {
     fontSize: 12, color: '#94A3B8', marginTop: 2,
   },
-  historyAmount: {
-    fontSize: 16, fontWeight: '800', color: '#8BA367',
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  historyItemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  historyTotalLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  historyTotalValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1B3B14',
+  },
+  detailsSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 10,
+    marginTop: 6,
+  },
+  historyDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  historyDetailName: {
+    fontSize: 13,
+    color: '#475569',
+    flex: 2,
+  },
+  historyDetailQty: {
+    fontSize: 13,
+    color: '#64748B',
+    flex: 0.5,
+    textAlign: 'center',
+  },
+  historyDetailPrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E293B',
+    flex: 1,
+    textAlign: 'right',
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  receiptLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  receiptValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 4,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailDate: {
+    fontSize: 13,
+    color: '#64748B',
   },
 });
 

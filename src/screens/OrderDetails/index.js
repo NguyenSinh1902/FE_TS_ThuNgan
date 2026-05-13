@@ -368,6 +368,30 @@ const OrderDetails = ({ onNavigate, params }) => {
   // Calculations
   const subtotal = Number(invoice?.tongTienHang || 0);
 
+  // Calculate best voucher
+  const getVoucherDiscountAmount = (v) => {
+    const giaTriGiam = Number(v.giaTriGiam || 0);
+    if (v.loaiKhuyenMai === 'GIAM_TIEN_MAT') {
+      return giaTriGiam;
+    } else if (v.loaiKhuyenMai === 'GIAM_PHAN_TRAM') {
+      return (subtotal * giaTriGiam) / 100;
+    }
+    return 0;
+  };
+
+  const bestVoucherId = vouchers.reduce((bestId, v) => {
+    const minOrder = Number(v.donToiThieu || v.giaTriDonHangToiThieu || 0);
+    if (subtotal < minOrder) return bestId;
+    
+    const currentDiscount = getVoucherDiscountAmount(v);
+    if (!bestId) return currentDiscount > 0 ? v.idKhuyenMai : null;
+    
+    const bestVoucher = vouchers.find(x => x.idKhuyenMai === bestId);
+    const bestDiscount = getVoucherDiscountAmount(bestVoucher);
+    
+    return currentDiscount > bestDiscount ? v.idKhuyenMai : bestId;
+  }, null);
+
   // Voucher discount from applied voucher (manual code) or selected list
   let voucherDiscount = 0;
   if (appliedVoucher) {
@@ -388,12 +412,29 @@ const OrderDetails = ({ onNavigate, params }) => {
 
   const pointsDiscount = (parseInt(pointsToUse) || 0) * 1000;
 
-  // Tax calculated from real API fees (all are % based)
+  // Member discount
+  let memberDiscount = 0;
+  if (foundMember) {
+    if (foundMember.hangThanhVien === 'VANG') {
+      memberDiscount = subtotal * 0.10;
+    } else if (foundMember.hangThanhVien === 'BAC') {
+      memberDiscount = subtotal * 0.05;
+    }
+  }
+
+  // Tax calculated from real API fees
   let taxAmount = 0;
   selectedFees.forEach(fId => {
     const f = fees.find(x => x.idThuePhi === fId);
     if (f) {
-      taxAmount += (subtotal - voucherDiscount - pointsDiscount) * f.giaTri;
+      if (f.loaiGiaTri === 'PHAN_TRAM') {
+        taxAmount += (subtotal - voucherDiscount - memberDiscount) * f.giaTri / 100;
+      } else if (f.loaiGiaTri === 'TIEN_MAT') {
+        taxAmount += f.giaTri;
+      } else {
+        // Fallback for old data or assumption
+        taxAmount += (subtotal - voucherDiscount - memberDiscount) * f.giaTri / 100;
+      }
     }
   });
   // Fallback: use invoice's tongTienThue if no fees selected
@@ -401,7 +442,7 @@ const OrderDetails = ({ onNavigate, params }) => {
     taxAmount = invoice.tongTienThue;
   }
 
-  const total = Math.max(0, subtotal - voucherDiscount - pointsDiscount + taxAmount);
+  const total = Math.max(0, subtotal - voucherDiscount - pointsDiscount - memberDiscount + taxAmount);
 
   const toggleFee = (id) => {
     const fee = fees.find(f => f.idThuePhi === id);
@@ -411,8 +452,11 @@ const OrderDetails = ({ onNavigate, params }) => {
   };
 
   const toggleVoucher = (id) => {
-    if (selectedVouchers.includes(id)) setSelectedVouchers(selectedVouchers.filter(v => v !== id));
-    else setSelectedVouchers([...selectedVouchers, id]);
+    if (selectedVouchers.includes(id)) {
+      setSelectedVouchers([]);
+    } else if (selectedVouchers.length === 0) {
+      setSelectedVouchers([id]); // Chỉ cho chọn 1 mã khi chưa chọn mã nào
+    }
   };
 
 
@@ -573,6 +617,11 @@ const OrderDetails = ({ onNavigate, params }) => {
                       <Text style={styles.customerNameText}>{reservation.tenKhachHang}</Text>
                       <Text style={styles.customerPhoneText}>- {reservation.sdtKhachHang}</Text>
                     </View>
+                    {invoice?.tenPhucVu && (
+                      <View style={{ marginBottom: 8 }}>
+                        <Text style={{ fontSize: 14, color: '#64748B' }}>🤵 Phục vụ: <Text style={{ fontWeight: '600', color: '#0F172A' }}>{invoice.tenPhucVu}</Text></Text>
+                      </View>
+                    )}
                     <View style={styles.statsRow}>
                       <View style={styles.statItem}>
                         <Text style={styles.statText}>👤 Số lượng: <Text style={{ fontWeight: '700' }}>{reservation.soLuongNguoi}</Text></Text>
@@ -607,10 +656,12 @@ const OrderDetails = ({ onNavigate, params }) => {
                         try {
                           if (item.tuyChonJson) {
                             const opts = JSON.parse(item.tuyChonJson);
-                            if (opts.da && opts.da !== 'Mặc định') details += ` • Đá: ${opts.da}`;
-                            if (opts.duong && opts.duong !== 'Mặc định') details += ` • Đường: ${opts.duong}`;
+                            if (opts.da) details += ` • Đá: ${opts.da}`;
+                            if (opts.duong) details += ` • Đường: ${opts.duong}`;
                           }
                         } catch (e) { }
+
+                        const toppingNames = (item.danhSachTopping || []).map(t => t.tenTopping).join(', ');
 
                         return (
                           <View key={item.idChiTiet.toString()} style={styles.productCard}>
@@ -621,6 +672,9 @@ const OrderDetails = ({ onNavigate, params }) => {
                             <View style={{ flex: 1 }}>
                               <Text style={styles.productName} numberOfLines={2}>{item.tenSanPham}</Text>
                               <Text style={styles.productMeta} numberOfLines={2}>{details}</Text>
+                              {toppingNames.length > 0 && (
+                                <Text style={[styles.productMeta, { color: '#64748B' }]} numberOfLines={1}>+ Topping: {toppingNames}</Text>
+                              )}
                               <Text style={styles.productPrice}>{formatPrice(item.thanhTien)}</Text>
                             </View>
                           </View>
@@ -670,29 +724,57 @@ const OrderDetails = ({ onNavigate, params }) => {
                     <Text style={styles.summaryLabel}>Tạm tính</Text>
                     <Text style={styles.summaryValue}>{formatPrice(subtotal)}</Text>
                   </View>
-                  {voucherDiscount > 0 && (
-                    <View style={styles.summaryItem}>
-                      <Text style={styles.summaryLabel}>Khuyến mãi</Text>
-                      <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(voucherDiscount)}</Text>
-                    </View>
-                  )}
+                  
+                  {voucherDiscount > 0 && (() => {
+                    const v = vouchers.find(x => selectedVouchers.includes(x.idKhuyenMai));
+                    const percentageStr = (v && v.loaiKhuyenMai === 'GIAM_PHAN_TRAM') ? ` (${v.giaTriGiam}%)` : '';
+                    return (
+                      <View style={styles.summaryItem}>
+                        <Text style={styles.summaryLabel}>Khuyến mãi{percentageStr}</Text>
+                        <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(voucherDiscount)}</Text>
+                      </View>
+                    );
+                  })()}
+
+                  {memberDiscount > 0 && (() => {
+                    const percentageStr = foundMember?.hangThanhVien === 'VANG' ? ' (10%)' : foundMember?.hangThanhVien === 'BAC' ? ' (5%)' : '';
+                    return (
+                      <View style={styles.summaryItem}>
+                        <Text style={styles.summaryLabel}>Giảm giá thành viên{percentageStr}</Text>
+                        <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(memberDiscount)}</Text>
+                      </View>
+                    );
+                  })()}
+
+                  {selectedFees.map(fId => {
+                    const f = fees.find(x => x.idThuePhi === fId);
+                    if (!f) return null;
+                    
+                    let amount = 0;
+                    const percentageStr = f.loaiGiaTri === 'PHAN_TRAM' ? ` (${f.giaTri}%)` : '';
+                    
+                    if (f.loaiGiaTri === 'PHAN_TRAM') {
+                      amount = (subtotal - voucherDiscount - memberDiscount) * f.giaTri / 100;
+                    } else if (f.loaiGiaTri === 'TIEN_MAT') {
+                      amount = f.giaTri;
+                    } else {
+                      amount = (subtotal - voucherDiscount - memberDiscount) * f.giaTri / 100;
+                    }
+
+                    return (
+                      <View key={fId} style={styles.summaryItem}>
+                        <Text style={styles.summaryLabel}>{f.tenThuePhi}{percentageStr}</Text>
+                        <Text style={styles.summaryValue}>+{formatPrice(Math.round(amount))}</Text>
+                      </View>
+                    );
+                  })}
+
                   {pointsDiscount > 0 && (
                     <View style={styles.summaryItem}>
                       <Text style={styles.summaryLabel}>Cấn trừ điểm</Text>
                       <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(pointsDiscount)}</Text>
                     </View>
                   )}
-                  {selectedFees.map(fId => {
-                    const f = fees.find(x => x.idThuePhi === fId);
-                    if (!f) return null;
-                    const amount = (subtotal - voucherDiscount - pointsDiscount) * f.giaTri;
-                    return (
-                      <View key={fId} style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>{f.tenThuePhi}</Text>
-                        <Text style={styles.summaryValue}>+{formatPrice(Math.round(amount))}</Text>
-                      </View>
-                    );
-                  })}
                 </ScrollView>
 
                 <View style={styles.grandTotalItem}>
@@ -766,15 +848,40 @@ const OrderDetails = ({ onNavigate, params }) => {
                   </View>
                 )}
 
+                {invoice?.tenPhucVu && (
+                  <View style={{ marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 12 }}>
+                    <Text style={{ fontSize: 13, color: '#64748B' }}>Phục vụ: <Text style={{ fontWeight: '600', color: '#0F172A' }}>{invoice.tenPhucVu}</Text></Text>
+                  </View>
+                )}
+
                 {/* Items List */}
                 <View style={{ marginBottom: 16 }}>
-                  {(previewInvoice?.danhSachChiTiet || invoice?.danhSachChiTiet || []).map((item, idx) => (
-                    <View key={idx} style={styles.billItemRow}>
-                      <Text style={styles.billItemName} numberOfLines={1}>{item.tenSanPham}</Text>
-                      <Text style={styles.billItemQty}>x{item.soLuong}</Text>
-                      <Text style={styles.billItemPrice}>{formatPrice(item.thanhTien)}</Text>
-                    </View>
-                  ))}
+                  {(previewInvoice?.danhSachChiTiet || invoice?.danhSachChiTiet || []).map((item, idx) => {
+                    let details = item.tenKichCo || '';
+                    try {
+                      if (item.tuyChonJson) {
+                        const opts = JSON.parse(item.tuyChonJson);
+                        if (opts.da) details += ` • Đá: ${opts.da}`;
+                        if (opts.duong) details += ` • Đường: ${opts.duong}`;
+                      }
+                    } catch (e) { }
+
+                    const toppingNames = (item.danhSachTopping || []).map(t => t.tenTopping).join(', ');
+
+                    return (
+                      <View key={idx} style={{ marginBottom: 8 }}>
+                        <View style={styles.billItemRow}>
+                          <Text style={styles.billItemName} numberOfLines={1}>{item.tenSanPham}</Text>
+                          <Text style={styles.billItemQty}>x{item.soLuong}</Text>
+                          <Text style={styles.billItemPrice}>{formatPrice(item.thanhTien)}</Text>
+                        </View>
+                        <Text style={{ fontSize: 12, color: '#64748B', marginLeft: 4 }}>{details}</Text>
+                        {toppingNames.length > 0 && (
+                          <Text style={{ fontSize: 12, color: '#64748B', marginLeft: 4 }}>+ Topping: {toppingNames}</Text>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
 
                 <View style={styles.iptDashDivider} />
@@ -800,9 +907,16 @@ const OrderDetails = ({ onNavigate, params }) => {
                     </View>
                   )}
 
+                  {memberDiscount > 0 && (
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryLabel}>Giảm giá thành viên</Text>
+                      <Text style={[styles.summaryValue, { color: '#8BA367' }]}>-{formatPrice(memberDiscount)}</Text>
+                    </View>
+                  )}
+
                   {previewInvoice?.danhSachThuePhi?.map((t, i) => (
                     <View key={i} style={styles.summaryItem}>
-                      <Text style={styles.summaryLabel}>{t.tenThuePhi}</Text>
+                      <Text style={styles.summaryLabel}>{t.tenThuePhi}{t.loaiGiaTri === 'PHAN_TRAM' ? ` (${t.giaTriTaiThoiDiemBan}%)` : ''}</Text>
                       <Text style={styles.summaryValue}>+{formatPrice(t.soTienQuyDoi)}</Text>
                     </View>
                   ))}
@@ -1059,6 +1173,7 @@ const OrderDetails = ({ onNavigate, params }) => {
               <ScrollView style={[styles.voucherScroll, { maxHeight: 450 }]} showsVerticalScrollIndicator={false}>
                 {vouchers.map(v => {
                   const isSelected = selectedVouchers.includes(v.idKhuyenMai);
+                  const isAnotherSelected = selectedVouchers.length > 0 && !isSelected;
                   const minOrder = Number(v.donToiThieu || v.giaTriDonHangToiThieu || 0);
                   const isEligible = subtotal >= minOrder;
                   const expiryDate = v.ngayHetHan ? new Date(v.ngayHetHan).toLocaleDateString('vi-VN') : 'Vô thời hạn';
@@ -1080,10 +1195,10 @@ const OrderDetails = ({ onNavigate, params }) => {
                       style={[
                         styles.voucherCard,
                         isSelected && styles.voucherCardSelected,
-                        !isEligible && styles.voucherCardDisabled
+                        (!isEligible || isAnotherSelected) && styles.voucherCardDisabled
                       ]}
-                      onPress={() => isEligible && toggleVoucher(v.idKhuyenMai)}
-                      disabled={!isEligible}
+                      onPress={() => isEligible && !isAnotherSelected && toggleVoucher(v.idKhuyenMai)}
+                      disabled={!isEligible || isAnotherSelected}
                     >
                       {/* Ticket Cutouts */}
                       <View style={styles.leftCutoutMask}>
@@ -1111,7 +1226,14 @@ const OrderDetails = ({ onNavigate, params }) => {
                         <View style={{ flex: 1 }}>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <View>
-                              <Text style={styles.voucherTitle}>{v.maCode}</Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Text style={styles.voucherTitle}>{v.maCode}</Text>
+                                {v.idKhuyenMai === bestVoucherId && (
+                                  <View style={{ backgroundColor: '#D1FAE5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                                    <Text style={{ color: '#059669', fontSize: 11, fontWeight: '700' }}>Giảm nhiều nhất</Text>
+                                  </View>
+                                )}
+                              </View>
                               <Text style={[styles.voucherSub, { color: isEligible ? '#3B82F6' : '#64748B', fontWeight: '700' }]}>{discountLabel}</Text>
                             </View>
                             <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
@@ -1170,7 +1292,11 @@ const OrderDetails = ({ onNavigate, params }) => {
                     </View>
                     <View style={styles.statusLabelContainer}>
                       <Text style={styles.statusLabelMain}>{f.tenThuePhi}</Text>
-                      <Text style={styles.statusLabelSub}>Áp dụng {(f.giaTri * 100).toFixed(0)}% trên tổng bill</Text>
+                      <Text style={styles.statusLabelSub}>
+                        {f.loaiGiaTri === 'PHAN_TRAM' 
+                          ? `Áp dụng ${f.giaTri}% trên tổng bill` 
+                          : `Phụ thu ${formatPrice(f.giaTri)}`}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -1224,6 +1350,13 @@ const OrderDetails = ({ onNavigate, params }) => {
                 <Text style={styles.receiptValue}>{currentUser?.hoTen || 'Thu ngân'}</Text>
               </View>
 
+              {invoice?.tenPhucVu && (
+                <View style={[styles.receiptRow, { marginTop: 4 }]}>
+                  <Text style={styles.receiptLabel}>Phục vụ:</Text>
+                  <Text style={styles.receiptValue}>{invoice.tenPhucVu}</Text>
+                </View>
+              )}
+
               {foundMember && (
                 <View style={[styles.receiptRow, { marginTop: 4 }]}>
                   <Text style={styles.receiptLabel}>Khách hàng:</Text>
@@ -1233,13 +1366,32 @@ const OrderDetails = ({ onNavigate, params }) => {
 
               <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
 
-              {(previewInvoice?.danhSachChiTiet || invoice?.danhSachChiTiet || []).map((item, idx) => (
-                <View key={idx} style={[styles.receiptRow, { marginBottom: 4 }]}>
-                  <Text style={styles.receiptItemName}>{item.tenSanPham}</Text>
-                  <Text style={styles.receiptItemQty}>x{item.soLuong}</Text>
-                  <Text style={styles.receiptItemPrice}>{formatPrice(item.thanhTien)}</Text>
-                </View>
-              ))}
+              {(previewInvoice?.danhSachChiTiet || invoice?.danhSachChiTiet || []).map((item, idx) => {
+                let details = item.tenKichCo || '';
+                try {
+                  if (item.tuyChonJson) {
+                    const opts = JSON.parse(item.tuyChonJson);
+                    if (opts.da) details += ` • Đá: ${opts.da}`;
+                    if (opts.duong) details += ` • Đường: ${opts.duong}`;
+                  }
+                } catch (e) { }
+
+                const toppingNames = (item.danhSachTopping || []).map(t => t.tenTopping).join(', ');
+
+                return (
+                  <View key={idx} style={{ marginBottom: 6 }}>
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>{item.tenSanPham}</Text>
+                      <Text style={styles.receiptItemQty}>x{item.soLuong}</Text>
+                      <Text style={styles.receiptItemPrice}>{formatPrice(item.thanhTien)}</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: '#64748B' }}>{details}</Text>
+                    {toppingNames.length > 0 && (
+                      <Text style={{ fontSize: 11, color: '#64748B' }}>+ Topping: {toppingNames}</Text>
+                    )}
+                  </View>
+                );
+              })}
 
               <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
 
@@ -1266,7 +1418,7 @@ const OrderDetails = ({ onNavigate, params }) => {
 
                 {previewInvoice?.danhSachThuePhi?.map((t, i) => (
                   <View key={i} style={styles.receiptRow}>
-                    <Text style={styles.receiptItemName}>{t.tenThuePhi}</Text>
+                    <Text style={styles.receiptItemName}>{t.tenThuePhi}{t.loaiGiaTri === 'PHAN_TRAM' ? ` (${t.giaTriTaiThoiDiemBan}%)` : ''}</Text>
                     <Text style={styles.receiptItemPrice}>+{formatPrice(t.soTienQuyDoi)}</Text>
                   </View>
                 ))}

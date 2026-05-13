@@ -13,6 +13,12 @@ const authApi = {
   },
   verifyRegister: (data) => {
     return axiosClient.post('/auth/verify-register', data);
+  },
+  requestOtp: (email) => {
+    return axiosClient.post(`/auth/request-otp?email=${email}`);
+  },
+  resetPassword: (data) => {
+    return axiosClient.post('/auth/reset-password', data);
   }
 };
 

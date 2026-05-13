@@ -29,6 +29,7 @@ import SettingsTab from './components/SettingsTab';
 import styles from './Home.styles';
 import { Alert } from 'react-native';
 import HistoryTab from './components/HistoryTab';
+import CustomAlert from '../../components/CustomAlert';
 
 const getTableTheme = (status, invoiceStatus) => {
   let hasOuterGlow = false;
@@ -176,6 +177,7 @@ const Home = ({ onNavigate }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isProfileVisible, setIsProfileVisible] = useState(false);
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info', buttons: [] });
 
   // Filter and Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -214,22 +216,24 @@ const Home = ({ onNavigate }) => {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Đăng xuất',
-      'Bạn có chắc chắn muốn đăng xuất không?',
-      [
-        { text: 'Hủy', style: 'cancel' },
+    setAlert({
+      visible: true,
+      title: 'Đăng xuất',
+      message: 'Bạn có chắc chắn muốn đăng xuất không?',
+      type: 'warning',
+      buttons: [
+        { text: 'Hủy', onPress: () => setAlert({ visible: false, title: '', message: '', type: 'info', buttons: [] }) },
         { 
           text: 'Đăng xuất', 
-          style: 'destructive',
           onPress: async () => {
+            setAlert({ visible: false, title: '', message: '', type: 'info', buttons: [] });
             await safeAsyncStorage.removeItem('token');
             await safeAsyncStorage.removeItem('userId');
             onNavigate('Start', { reset: true });
           }
         }
       ]
-    );
+    });
   };
 
   const fetchData = async (isRefresh = false) => {
@@ -348,11 +352,19 @@ const Home = ({ onNavigate }) => {
         onPress={() => setIsProfileVisible(true)}
       >
         <View style={[styles.userAvatar, !isSidebarExpanded && { marginRight: 0 }, { overflow: 'hidden' }]}>
-          <Image 
-            source={require('../../assets/images/user_avatar.png')} 
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
+          {currentUser?.avatar || currentUser?.hinhAnh ? (
+            <Image 
+              source={{ uri: currentUser.avatar || currentUser.hinhAnh }} 
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Image 
+              source={require('../../assets/images/user_avatar.png')} 
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          )}
         </View>
         {isSidebarExpanded && (
           <View style={{ flex: 1 }}>
@@ -367,6 +379,7 @@ const Home = ({ onNavigate }) => {
         onClose={() => setIsProfileVisible(false)}
         user={currentUser}
         onLogout={handleLogout}
+        onUpdate={setCurrentUser}
       />
     </Animated.View>
   );
@@ -513,6 +526,15 @@ const Home = ({ onNavigate }) => {
       <NotificationModal 
         isVisible={showNotiModal} 
         onClose={() => setShowNotiModal(false)} 
+      />
+
+      <CustomAlert 
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        buttons={alert.buttons}
+        onClose={() => setAlert({ ...alert, visible: false })}
       />
     </View>
   );

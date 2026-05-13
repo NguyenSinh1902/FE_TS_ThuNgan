@@ -4,6 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import authApi from '../../api/authApi';
 import safeAsyncStorage from '../../utils/storage';
 import s from './styles';
+import CustomAlert from '../../components/CustomAlert';
 
 const AuthLayout = ({ children, onNavigate, title }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -57,6 +58,7 @@ const VerifyOTP = ({ onNavigate, params }) => {
   const [otp, setOtp] = useState('');
   const [email, setEmail] = useState(initialEmail || '');
   const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info', buttons: [] });
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ const VerifyOTP = ({ onNavigate, params }) => {
 
   const handleVerify = async () => {
     if (!otp || otp.length < 6) {
-      Alert.alert('Lỗi', 'Vui lòng nhập mã OTP 6 chữ số');
+      setAlert({ visible: true, title: 'Lỗi', message: 'Vui lòng nhập mã OTP 6 chữ số', type: 'error' });
       return;
     }
 
@@ -82,17 +84,22 @@ const VerifyOTP = ({ onNavigate, params }) => {
       const response = await authApi.verifyRegister({ email, otp });
 
       if (response === 'Xác thực OTP thành công!' || response.message?.includes('thành công')) {
-        Alert.alert(
-          'Xác thực thành công',
-          'Tài khoản của bạn đã được kích hoạt. Vui lòng đăng nhập.',
-          [{ text: 'OK', onPress: () => onNavigate('Login') }]
-        );
+        setAlert({
+          visible: true,
+          title: 'Xác thực thành công',
+          message: 'Tài khoản của bạn đã được kích hoạt. Vui lòng đăng nhập.',
+          type: 'success',
+          buttons: [{ text: 'OK', onPress: () => {
+            setAlert({ ...alert, visible: false });
+            onNavigate('Login');
+          }}]
+        });
       } else {
-        Alert.alert('Lỗi', 'Mã OTP không chính xác hoặc đã hết hạn');
+        setAlert({ visible: true, title: 'Lỗi', message: 'Mã OTP không chính xác hoặc đã hết hạn', type: 'error' });
       }
     } catch (error) {
       const errorMsg = error.response?.data || 'Xác thực không thành công. Vui lòng thử lại.';
-      Alert.alert('Lỗi xác thực', typeof errorMsg === 'string' ? errorMsg : 'Mã OTP không hợp lệ');
+      setAlert({ visible: true, title: 'Lỗi xác thực', message: typeof errorMsg === 'string' ? errorMsg : 'Mã OTP không hợp lệ', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -161,6 +168,15 @@ const VerifyOTP = ({ onNavigate, params }) => {
       <TouchableOpacity style={{ marginTop: 10 }}>
         <Text style={{ color: '#059669', fontWeight: '800', textAlign: 'center', fontSize: 15 }}>Gửi lại mã OTP</Text>
       </TouchableOpacity>
+
+      <CustomAlert 
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        buttons={alert.buttons}
+        onClose={() => setAlert({ ...alert, visible: false })}
+      />
     </AuthLayout>
   );
 };
