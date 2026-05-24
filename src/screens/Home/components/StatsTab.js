@@ -7,7 +7,7 @@ import invoiceApi from '../../../api/invoiceApi';
 
 const { width } = Dimensions.get('window');
 
-const StatsTab = () => {
+const StatsTab = ({ onChangeMenu }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState(null);
@@ -17,17 +17,45 @@ const StatsTab = () => {
     fetchData();
   }, []);
 
+  const getThisWeekRange = () => {
+    const today = new Date();
+    const day = today.getDay();
+    const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
+    
+    // Tạo object Date mới để không mutate today
+    const monday = new Date(today.getTime());
+    monday.setDate(diffToMonday);
+    
+    const sunday = new Date(today.getTime());
+    sunday.setDate(diffToMonday + 6);
+    
+    const formatYMD = (d) => {
+      const m = d.getMonth() + 1;
+      const date = d.getDate();
+      return `${d.getFullYear()}-${m < 10 ? '0' + m : m}-${date < 10 ? '0' + date : date}`;
+    };
+    
+    return { tuNgay: formatYMD(monday), denNgay: formatYMD(sunday) };
+  };
+
   const fetchData = async (isRefresh = false) => {
     try {
       if (!isRefresh) setLoading(true);
-      const [statsRes, invoicesRes] = await Promise.all([
-        statsApi.getDashboardData(),
+      const { tuNgay, denNgay } = getThisWeekRange();
+
+      const [tongQuanRes, bieuDoRes, topSanPhamRes, invoicesRes] = await Promise.all([
+        statsApi.getTongQuanHomNay(),
+        statsApi.getBieuDoDoanhThu(tuNgay, denNgay),
+        statsApi.getTopSanPham(tuNgay, denNgay),
         invoiceApi.getAll()
       ]);
 
-      setData(statsRes);
+      setData({
+        tongQuan: tongQuanRes,
+        bieuDo: bieuDoRes,
+        topSanPham: topSanPhamRes
+      });
       
-      // Lấy 5 đơn hàng gần nhất
       if (Array.isArray(invoicesRes)) {
         const sorted = invoicesRes.sort((a, b) => new Date(b.thoiGianTao) - new Date(a.thoiGianTao));
         setRecentOrders(sorted.slice(0, 5));
@@ -72,6 +100,12 @@ const StatsTab = () => {
     </LinearGradient>
   );
 
+  const formatCompact = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toString();
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView 
@@ -83,10 +117,10 @@ const StatsTab = () => {
         {/* Row 1: Quick Stats */}
         <View style={styles.row}>
           <View style={styles.col3}>
-            {renderStatCard('Doanh thu hôm nay', data.doanhThuHomNay, data.phanTramTangTruongDoanhThu, <DollarSign color="#FFF" size={20} />, ['#4A924C', '#2D5A27'], true)}
+            {renderStatCard('Doanh thu hôm nay', data.tongQuan?.doanhThuHomNay || 0, data.tongQuan?.phanTramTangTruongDoanhThu || 0, <DollarSign color="#FFF" size={20} />, ['#4A924C', '#2D5A27'], true)}
           </View>
           <View style={styles.col3}>
-            {renderStatCard('Số lượng đơn hàng', data.soDonHang, data.phanTramTangTruongDonHang, <ShoppingBag color="#FFF" size={20} />, ['#3B82F6', '#1E40AF'])}
+            {renderStatCard('Số lượng đơn hàng', data.tongQuan?.soDonHang || 0, data.tongQuan?.phanTramTangTruongDonHang || 0, <ShoppingBag color="#FFF" size={20} />, ['#3B82F6', '#1E40AF'])}
           </View>
           <View style={styles.col3}>
             <LinearGradient colors={['#F59E0B', '#D97706']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statCard}>
@@ -94,7 +128,7 @@ const StatsTab = () => {
                 <View style={styles.iconCircle}><Award color="#FFF" size={20} /></View>
                 <View style={styles.bestSellerBadge}><Text style={styles.bestSellerTag}>#1</Text></View>
               </View>
-              <Text style={styles.cardValue} numberOfLines={1}>{data.monBanChayNhat}</Text>
+              <Text style={styles.cardValue} numberOfLines={1}>{data.tongQuan?.monBanChayNhat?.tenSanPham || 'Chưa có'}</Text>
               <Text style={styles.cardTitle}>Món bán chạy nhất</Text>
             </LinearGradient>
           </View>
@@ -104,26 +138,26 @@ const StatsTab = () => {
           {/* Left Column: Charts & Lists */}
           <View style={styles.leftCol}>
             
-            {/* Chart: Peak Hours */}
+            {/* Chart: Doanh thu tuần này */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
-                <Clock size={18} color="#475569" />
-                <Text style={styles.sectionTitle}>Giờ cao điểm trong ngày</Text>
+                <DollarSign size={18} color="#475569" />
+                <Text style={styles.sectionTitle}>Biểu đồ doanh thu (Tuần này)</Text>
               </View>
               <View style={styles.chartArea}>
-                {data.peakHours.map((item, idx) => {
-                  const maxOrders = Math.max(...data.peakHours.map(h => h.orders)) || 1;
-                  const heightPercent = (item.orders / maxOrders) * 100;
+                {data.bieuDo && data.bieuDo.length > 0 ? data.bieuDo.map((item, idx) => {
+                  const maxVal = Math.max(...data.bieuDo.map(h => h.giaTri)) || 1;
+                  const heightPercent = (item.giaTri / maxVal) * 100;
                   return (
                     <View key={idx} style={styles.chartCol}>
                       <View style={styles.barWrap}>
                         <View style={[styles.bar, { height: `${heightPercent}%`, backgroundColor: heightPercent > 80 ? '#4A924C' : '#CBD5E1' }]} />
-                        {item.orders > 0 && <Text style={styles.barValue}>{item.orders}</Text>}
+                        {item.giaTri > 0 && <Text style={[styles.barValue, { width: 50, left: -13 }]} numberOfLines={1}>{formatCompact(item.giaTri)}</Text>}
                       </View>
-                      <Text style={styles.barLabel}>{item.hour.split(':')[0]}</Text>
+                      <Text style={styles.barLabel}>{item.nhan}</Text>
                     </View>
                   );
-                })}
+                }) : <Text style={{ alignSelf: 'center', color: '#94A3B8' }}>Chưa có dữ liệu biểu đồ</Text>}
               </View>
             </View>
 
@@ -131,18 +165,18 @@ const StatsTab = () => {
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <Award size={18} color="#475569" />
-                <Text style={styles.sectionTitle}>Top 5 Sản phẩm bán chạy</Text>
+                <Text style={styles.sectionTitle}>Top Sản phẩm bán chạy</Text>
               </View>
-              {data.top5BanChay.map((item, idx) => (
+              {data.topSanPham?.top5BanChay && data.topSanPham.top5BanChay.length > 0 ? data.topSanPham.top5BanChay.map((item, idx) => (
                 <View key={idx} style={styles.productItem}>
                   <View style={styles.rankBadge}><Text style={styles.rankText}>{idx + 1}</Text></View>
                   <Text style={styles.productName}>{item.tenSanPham}</Text>
                   <View style={styles.productProgressWrap}>
-                    <View style={[styles.progressBar, { width: `${(item.soLuong / data.top5BanChay[0].soLuong) * 100}%` }]} />
+                    <View style={[styles.progressBar, { width: `${(item.soLuong / (data.topSanPham.top5BanChay[0]?.soLuong || 1)) * 100}%` }]} />
                   </View>
                   <Text style={styles.productQty}>{item.soLuong} phần</Text>
                 </View>
-              ))}
+              )) : <Text style={{ color: '#94A3B8' }}>Chưa có dữ liệu sản phẩm</Text>}
             </View>
           </View>
 
@@ -167,30 +201,11 @@ const StatsTab = () => {
                   <Text style={styles.orderPrice}>{Number(order.tongThanhToan).toLocaleString('vi-VN')}đ</Text>
                 </View>
               ))}
-              <TouchableOpacity style={styles.viewMoreBtn}>
+              <TouchableOpacity style={styles.viewMoreBtn} onPress={() => onChangeMenu && onChangeMenu('HISTORY')}>
                 <Text style={styles.viewMoreText}>Xem tất cả</Text>
                 <ArrowRight size={14} color="#3B82F6" />
               </TouchableOpacity>
             </View>
-
-            {/* Order Sources Breakdown */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Nguồn đơn hàng</Text>
-              <View style={styles.sourceList}>
-                {data.orderSources.map((source, idx) => (
-                  <View key={idx} style={styles.sourceItem}>
-                    <View style={styles.sourceHeader}>
-                      <Text style={styles.sourceLabel}>{source.label}</Text>
-                      <Text style={styles.sourcePercent}>{source.percentage}%</Text>
-                    </View>
-                    <View style={styles.sourceBarBase}>
-                      <View style={[styles.sourceBarFill, { width: `${source.percentage}%`, backgroundColor: idx === 0 ? '#4A924C' : '#3B82F6' }]} />
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-
           </View>
         </View>
       </ScrollView>

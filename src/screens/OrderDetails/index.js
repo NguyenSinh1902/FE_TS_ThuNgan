@@ -22,6 +22,7 @@ import reservationApi from '../../api/reservationApi';
 import customerApi from '../../api/customerApi';
 import staffApi from '../../api/staffApi';
 import safeAsyncStorage from '../../utils/storage';
+import { listenToFirebase } from '../../utils/firebaseListener';
 import NewMemberModal from './components/NewMemberModal';
 import MemberModal from './components/MemberModal';
 import styles from './OrderDetails.styles';
@@ -88,6 +89,7 @@ const OrderDetails = ({ onNavigate, params }) => {
   const [toast, setToast] = useState(null);
   const [toastType, setToastType] = useState('success');
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [realtimeRefreshing, setRealtimeRefreshing] = useState(false); // silent refresh indicator
   
   const receiptRef = useRef();
 
@@ -132,6 +134,37 @@ const OrderDetails = ({ onNavigate, params }) => {
     fetchVouchers();
     fetchReservation();
     fetchUserProfile();
+
+    // ─── Firebase Realtime: theo dõi đơn này để tự động refresh khi Phục vụ thêm món ───
+    if (!params?.invoiceId) return;
+    const targetId = Number(params.invoiceId);
+    // Snapshot lastUpdate/tongThanhToan hiện tại để so sánh
+    let lastSnapshot = null;
+
+    const orderListener = listenToFirebase('orders', firebaseOrders => {
+      if (!firebaseOrders || typeof firebaseOrders !== 'object') return;
+      // Tìm đơn khớp với invoiceId hiện tại
+      const fbOrder = Object.values(firebaseOrders).find(
+        o => o !== null && o?.idHoaDon == targetId
+      );
+      if (!fbOrder) return;
+
+      // Tạo snapshot key gồm cả tongThanhToan và lastUpdate
+      const snapshot = `${fbOrder.tongThanhToan}_${fbOrder.lastUpdate || ''}_${fbOrder.trangThai}`;
+      if (lastSnapshot === null) {
+        // Lần đầu: ghi lại snapshot, chưa refresh
+        lastSnapshot = snapshot;
+        return;
+      }
+      if (snapshot === lastSnapshot) return; // Không có thay đổi
+
+      // Có thay đổi (thêm món, sửa món, đổi trạng thái) → refresh đầy đủ từ API
+      lastSnapshot = snapshot;
+      setRealtimeRefreshing(true);
+      fetchInvoiceDetail(targetId).finally(() => setRealtimeRefreshing(false));
+    });
+
+    return () => orderListener.stop();
   }, [params?.invoiceId, params?.tableName]);
 
   const fetchUserProfile = async () => {
@@ -526,9 +559,17 @@ const OrderDetails = ({ onNavigate, params }) => {
                 </TouchableOpacity>
                 <View style={{ flex: 1, marginLeft: 16 }}>
                   <Text style={styles.headerTitle}>Chi tiết hóa đơn</Text>
-                  <Text style={styles.headerSubtitle}>
-                    {params?.orderId ? params.orderId : params?.tableName ? params.tableName : `#${params?.invoiceId || '001'}`}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.headerSubtitle}>
+                      {params?.orderId ? params.orderId : params?.tableName ? params.tableName : `#${params?.invoiceId || '001'}`}
+                    </Text>
+                    {realtimeRefreshing && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
+                        <ActivityIndicator size="small" color="#8BA367" style={{ marginRight: 4 }} />
+                        <Text style={{ fontSize: 11, color: '#8BA367', fontWeight: '600' }}>Đang cập nhật...</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <TouchableOpacity style={styles.editBtnLayered} onPress={() => setIsStatusModalVisible(true)}>
                   <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">

@@ -8,6 +8,9 @@ const invoiceApi = {
   getAll: () => {
     return axiosClient.get('/hoa-don');
   },
+  filterByDateRange: (tuNgay, denNgay) => {
+    return axiosClient.get(`/hoa-don/loc-theo-khoang-ngay?tuNgay=${tuNgay}&denNgay=${denNgay}`);
+  },
   getInvoiceDetails: (id) => {
     return axiosClient.get(`/hoa-don/${id}`);
   },

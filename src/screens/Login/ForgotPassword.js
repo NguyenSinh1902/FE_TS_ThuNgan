@@ -63,10 +63,12 @@ const ForgotPassword = ({ onNavigate }) => {
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info', buttons: [] });
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const handleRequestOtp = async () => {
+    setFieldErrors({});
     if (!email) {
-      setAlert({ visible: true, title: 'Lỗi', message: 'Vui lòng nhập email', type: 'error' });
+      setFieldErrors({ email: 'Vui lòng nhập email' });
       return;
     }
 
@@ -84,21 +86,52 @@ const ForgotPassword = ({ onNavigate }) => {
         }}]
       });
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Không thể gửi mã OTP. Vui lòng thử lại.';
-      setAlert({ visible: true, title: 'Lỗi', message: errorMsg, type: 'error' });
+      const data = error.response?.data;
+      const extractedErrors = data?.errors || data || {};
+      const newFieldErrors = {};
+      
+      if (typeof extractedErrors === 'object') {
+        const ignoredKeys = ['message', 'status', 'error', 'path', 'timestamp', 'detail', 'title', 'trace', 'exception'];
+        for (const key in extractedErrors) {
+          if (!ignoredKeys.includes(key) && typeof extractedErrors[key] === 'string' && extractedErrors[key].length < 200) {
+             const cleanKey = key.includes('.') ? key.split('.').pop() : key;
+             newFieldErrors[cleanKey] = extractedErrors[key];
+          }
+        }
+      }
+
+      const errorMsg = data?.message || error.message || 'Không thể gửi mã OTP. Vui lòng thử lại.';
+      
+      if (errorMsg.toLowerCase().includes('email') || errorMsg.toLowerCase().includes('tài khoản')) {
+        newFieldErrors.email = errorMsg;
+      }
+
+      if (Object.keys(newFieldErrors).length > 0) {
+        setFieldErrors(newFieldErrors);
+      } else {
+        setAlert({ visible: true, title: 'Lỗi', message: errorMsg, type: 'error' });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleResetPassword = async () => {
-    if (!otp || !newPassword || !confirmPassword) {
-      setAlert({ visible: true, title: 'Lỗi', message: 'Vui lòng điền đầy đủ thông tin', type: 'error' });
-      return;
+    setFieldErrors({});
+    
+    let hasError = false;
+    let newErrors = {};
+    if (!otp) { newErrors.otp = 'Vui lòng nhập mã OTP'; hasError = true; }
+    if (!newPassword) { newErrors.matKhauMoi = 'Vui lòng nhập mật khẩu mới'; hasError = true; }
+    if (!confirmPassword) { newErrors.confirmPassword = 'Vui lòng xác nhận mật khẩu'; hasError = true; }
+
+    if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+      newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+      hasError = true;
     }
 
-    if (newPassword !== confirmPassword) {
-      setAlert({ visible: true, title: 'Lỗi', message: 'Mật khẩu xác nhận không khớp', type: 'error' });
+    if (hasError) {
+      setFieldErrors(newErrors);
       return;
     }
 
@@ -121,8 +154,33 @@ const ForgotPassword = ({ onNavigate }) => {
         }}]
       });
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Đổi mật khẩu không thành công. Vui lòng thử lại.';
-      setAlert({ visible: true, title: 'Lỗi', message: errorMsg, type: 'error' });
+      const data = error.response?.data;
+      const extractedErrors = data?.errors || data || {};
+      const newFieldErrors = {};
+      
+      if (typeof extractedErrors === 'object') {
+        const ignoredKeys = ['message', 'status', 'error', 'path', 'timestamp', 'detail', 'title', 'trace', 'exception'];
+        for (const key in extractedErrors) {
+          if (!ignoredKeys.includes(key) && typeof extractedErrors[key] === 'string' && extractedErrors[key].length < 200) {
+             const cleanKey = key.includes('.') ? key.split('.').pop() : key;
+             newFieldErrors[cleanKey] = extractedErrors[key];
+          }
+        }
+      }
+
+      const errorMsg = data?.message || error.message || 'Đổi mật khẩu không thành công. Vui lòng thử lại.';
+      
+      if (errorMsg.toLowerCase().includes('otp')) {
+        newFieldErrors.otp = errorMsg;
+      } else if (errorMsg.toLowerCase().includes('mật khẩu') || errorMsg.toLowerCase().includes('mat khau')) {
+        newFieldErrors.matKhauMoi = errorMsg;
+      }
+
+      if (Object.keys(newFieldErrors).length > 0) {
+        setFieldErrors(newFieldErrors);
+      } else {
+        setAlert({ visible: true, title: 'Lỗi', message: errorMsg, type: 'error' });
+      }
     } finally {
       setLoading(false);
     }
@@ -134,7 +192,7 @@ const ForgotPassword = ({ onNavigate }) => {
         <View style={{ width: '100%' }}>
           <Text style={styles.subtitle}>Nhập email của bạn để nhận mã OTP khôi phục mật khẩu.</Text>
           
-          <View style={styles.inputWrap}>
+          <View style={[styles.inputWrap, fieldErrors.email && { borderColor: '#EF4444', borderWidth: 1 }]}>
             <TextInput 
               style={styles.input} 
               placeholder="Email" 
@@ -142,9 +200,10 @@ const ForgotPassword = ({ onNavigate }) => {
               keyboardType="email-address" 
               autoCapitalize="none"
               value={email} 
-              onChangeText={setEmail} 
+              onChangeText={(val) => { setEmail(val); setFieldErrors(prev => ({...prev, email: null})); }} 
             />
           </View>
+          {fieldErrors.email && <Text style={styles.errorText}>{fieldErrors.email}</Text>}
 
           <Pressable 
             style={({ pressed }) => [styles.btnWrapper, pressed && { transform: [{ scale: 0.98 }] }, loading && { opacity: 0.7 }]} 
@@ -164,7 +223,7 @@ const ForgotPassword = ({ onNavigate }) => {
         <View style={{ width: '100%' }}>
           <Text style={styles.subtitle}>Nhập mã OTP đã gửi về email và mật khẩu mới.</Text>
           
-          <View style={styles.inputWrap}>
+          <View style={[styles.inputWrap, fieldErrors.otp && { borderColor: '#EF4444', borderWidth: 1 }]}>
             <TextInput 
               style={styles.input} 
               placeholder="Mã OTP" 
@@ -172,37 +231,40 @@ const ForgotPassword = ({ onNavigate }) => {
               keyboardType="number-pad"
               maxLength={6}
               value={otp} 
-              onChangeText={setOtp} 
+              onChangeText={(val) => { setOtp(val); setFieldErrors(prev => ({...prev, otp: null})); }} 
             />
           </View>
+          {fieldErrors.otp && <Text style={styles.errorText}>{fieldErrors.otp}</Text>}
 
-          <View style={styles.pwInputWrap}>
+          <View style={[styles.pwInputWrap, (fieldErrors.matKhauMoi || fieldErrors.confirmPassword) && { borderColor: '#EF4444', borderWidth: 1 }]}>
             <TextInput 
               style={styles.pwInput} 
               placeholder="Mật khẩu mới" 
               placeholderTextColor="#94A3B8" 
               secureTextEntry={!showPw} 
               value={newPassword} 
-              onChangeText={setNewPassword} 
+              onChangeText={(val) => { setNewPassword(val); setFieldErrors(prev => ({...prev, matKhauMoi: null})); }} 
             />
             <TouchableOpacity onPress={() => setShowPw(!showPw)}>
               <Text style={{fontSize: 20}}>{showPw ? '🙈' : '👁️'}</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.pwInputWrap}>
+          <View style={[styles.pwInputWrap, (fieldErrors.matKhauMoi || fieldErrors.confirmPassword) && { borderColor: '#EF4444', borderWidth: 1 }]}>
             <TextInput 
               style={styles.pwInput} 
               placeholder="Xác nhận mật khẩu mới" 
               placeholderTextColor="#94A3B8" 
               secureTextEntry={!showConfirmPw} 
               value={confirmPassword} 
-              onChangeText={setConfirmPassword} 
+              onChangeText={(val) => { setConfirmPassword(val); setFieldErrors(prev => ({...prev, confirmPassword: null})); }} 
             />
             <TouchableOpacity onPress={() => setShowConfirmPw(!showConfirmPw)}>
               <Text style={{fontSize: 20}}>{showConfirmPw ? '🙈' : '👁️'}</Text>
             </TouchableOpacity>
           </View>
+          {fieldErrors.matKhauMoi ? <Text style={styles.errorText}>{fieldErrors.matKhauMoi}</Text> : null}
+          {fieldErrors.confirmPassword && !fieldErrors.matKhauMoi ? <Text style={styles.errorText}>{fieldErrors.confirmPassword}</Text> : null}
 
           <Pressable 
             style={({ pressed }) => [styles.btnWrapper, pressed && { transform: [{ scale: 0.98 }] }, loading && { opacity: 0.7 }]} 
@@ -371,6 +433,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#1B3B14',
     textAlign: 'center',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    marginTop: -8,
+    marginBottom: 16,
+    paddingLeft: 4,
   },
 });
 

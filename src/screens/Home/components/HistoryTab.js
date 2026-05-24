@@ -1,18 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, FlatList, TextInput, TouchableOpacity, 
-  ActivityIndicator, StyleSheet, RefreshControl 
+  ActivityIndicator, StyleSheet, RefreshControl, Modal, Pressable
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import DatePicker from 'react-native-date-picker';
+import { Bell } from 'lucide-react-native';
 import invoiceApi from '../../../api/invoiceApi';
 import InvoiceHistoryModal from './InvoiceHistoryModal';
 
-const HistoryTab = () => {
+const HistoryTab = ({ onShowNoti }) => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [selectedTime, setSelectedTime] = useState('ALL');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const [openStartDatePicker, setOpenStartDatePicker] = useState(false);
+  const [openEndDatePicker, setOpenEndDatePicker] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -20,10 +29,27 @@ const HistoryTab = () => {
 
   const fetchInvoices = async () => {
     try {
-      const response = await invoiceApi.getAll();
+      setLoading(true);
+      let response;
+      if (selectedTime === 'RANGE' && startDate && endDate) {
+        const formatYMD = (d) => {
+          const m = d.getMonth() + 1;
+          const day = d.getDate();
+          return `${d.getFullYear()}-${m < 10 ? '0' + m : m}-${day < 10 ? '0' + day : day}`;
+        };
+        response = await invoiceApi.filterByDateRange(formatYMD(startDate), formatYMD(endDate));
+      } else {
+        response = await invoiceApi.getAll();
+      }
+
       if (response && Array.isArray(response)) {
         const sorted = response.sort((a, b) => new Date(b.thoiGianTao) - new Date(a.thoiGianTao));
         setInvoices(sorted);
+      } else if (response && response.data) {
+        const sorted = response.data.sort((a, b) => new Date(b.thoiGianTao) - new Date(a.thoiGianTao));
+        setInvoices(sorted);
+      } else {
+        setInvoices([]);
       }
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -31,6 +57,11 @@ const HistoryTab = () => {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleApplyFilter = () => {
+    setShowFilterModal(false);
+    fetchInvoices();
   };
 
   const onRefresh = () => {
@@ -52,11 +83,24 @@ const HistoryTab = () => {
     }
   };
 
-  const filteredInvoices = invoices.filter(inv => 
-    inv.idHoaDon.toString().includes(searchQuery) || 
-    (inv.tenKhachHang && inv.tenKhachHang.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (inv.danhSachTenBan && inv.danhSachTenBan.join(', ').toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredInvoices = invoices.filter(inv => {
+    const matchesSearch = inv.idHoaDon.toString().includes(searchQuery) || 
+      (inv.tenKhachHang && inv.tenKhachHang.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (inv.danhSachTenBan && inv.danhSachTenBan.join(', ').toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesStatus = selectedStatus === 'ALL' || inv.trangThai === selectedStatus;
+
+    let matchesTime = true;
+    if (selectedTime === 'TODAY') {
+      const orderDate = new Date(inv.thoiGianTao);
+      const today = new Date();
+      matchesTime = orderDate.getDate() === today.getDate() &&
+        orderDate.getMonth() === today.getMonth() &&
+        orderDate.getFullYear() === today.getFullYear();
+    }
+
+    return matchesSearch && matchesStatus && matchesTime;
+  });
 
   const renderInvoiceRow = ({ item }) => {
     const status = getStatusStyle(item.trangThai);
@@ -105,9 +149,20 @@ const HistoryTab = () => {
               onChangeText={setSearchQuery}
             />
           </View>
-          <TouchableOpacity style={styles.filterBtn} onPress={onRefresh}>
-            <Text style={{fontSize: 18}}>🔄</Text>
-            <Text style={styles.filterBtnText}>Làm mới</Text>
+          <TouchableOpacity style={[styles.filterBtn, { width: 48, paddingHorizontal: 0, justifyContent: 'center' }]} onPress={() => setShowFilterModal(true)}>
+             <View style={{ gap: 3, alignItems: 'center' }}>
+                <View style={{ width: 16, height: 2, backgroundColor: '#475569', borderRadius: 1 }} />
+                <View style={{ width: 10, height: 2, backgroundColor: '#475569', borderRadius: 1, alignSelf: 'center' }} />
+                <View style={{ width: 4, height: 2, backgroundColor: '#475569', borderRadius: 1, alignSelf: 'center' }} />
+              </View>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filterBtn, { width: 48, paddingHorizontal: 0, justifyContent: 'center' }]} onPress={onShowNoti}>
+             <Bell size={20} color="#FF9800" strokeWidth={1.5} />
+             <View style={{
+                position: 'absolute', top: 10, right: 10, width: 8, height: 8,
+                backgroundColor: '#EF4444', borderRadius: 4,
+                borderWidth: 1.5, borderColor: '#FFFFFF'
+             }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -151,6 +206,111 @@ const HistoryTab = () => {
         isVisible={!!selectedInvoiceId} 
         invoiceId={selectedInvoiceId} 
         onClose={() => setSelectedInvoiceId(null)} 
+      />
+
+      <Modal visible={showFilterModal} transparent={true} animationType="fade">
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowFilterModal(false)}>
+          <Pressable style={{ width: 400, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 }} onPress={e => e.stopPropagation()}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 20 }}>Lọc hóa đơn</Text>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#64748B', marginBottom: 10 }}>Thời gian</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+              <Pressable
+                style={{ flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: selectedTime === 'ALL' ? '#10B981' : '#E2E8F0', backgroundColor: selectedTime === 'ALL' ? '#F0FDF4' : '#FFFFFF', alignItems: 'center' }}
+                onPress={() => setSelectedTime('ALL')}
+              >
+                <Text style={{ color: selectedTime === 'ALL' ? '#047857' : '#475569', fontWeight: '600' }}>Tất cả</Text>
+              </Pressable>
+              <Pressable
+                style={{ flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: selectedTime === 'TODAY' ? '#10B981' : '#E2E8F0', backgroundColor: selectedTime === 'TODAY' ? '#F0FDF4' : '#FFFFFF', alignItems: 'center' }}
+                onPress={() => setSelectedTime('TODAY')}
+              >
+                <Text style={{ color: selectedTime === 'TODAY' ? '#047857' : '#475569', fontWeight: '600' }}>Hôm nay</Text>
+              </Pressable>
+              <Pressable
+                style={{ flex: 1.5, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: selectedTime === 'RANGE' ? '#10B981' : '#E2E8F0', backgroundColor: selectedTime === 'RANGE' ? '#F0FDF4' : '#FFFFFF', alignItems: 'center' }}
+                onPress={() => {
+                  setSelectedTime('RANGE');
+                  setOpenStartDatePicker(true);
+                }}
+              >
+                <Text style={{ color: selectedTime === 'RANGE' ? '#047857' : '#475569', fontWeight: '600' }}>Khoảng ngày</Text>
+              </Pressable>
+            </View>
+
+            {selectedTime === 'RANGE' && startDate && endDate && (
+              <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 10, borderRadius: 8 }}>
+                <Text style={{ fontSize: 13, color: '#475569' }}>
+                  Từ: <Text style={{ fontWeight: '600', color: '#1E293B' }}>{startDate.toLocaleDateString('vi-VN')}</Text>
+                </Text>
+                <Text style={{ fontSize: 13, color: '#475569' }}>
+                  Đến: <Text style={{ fontWeight: '600', color: '#1E293B' }}>{endDate.toLocaleDateString('vi-VN')}</Text>
+                </Text>
+                <Pressable onPress={() => setOpenStartDatePicker(true)}>
+                  <Text style={{ fontSize: 13, color: '#10B981', fontWeight: '600' }}>Sửa</Text>
+                </Pressable>
+              </View>
+            )}
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#64748B', marginBottom: 10 }}>Trạng thái</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+              <Pressable
+                style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: selectedStatus === 'ALL' ? '#10B981' : '#E2E8F0', backgroundColor: selectedStatus === 'ALL' ? '#F0FDF4' : '#FFFFFF' }}
+                onPress={() => setSelectedStatus('ALL')}
+              >
+                <Text style={{ color: selectedStatus === 'ALL' ? '#047857' : '#475569', fontSize: 13, fontWeight: '500' }}>Tất cả</Text>
+              </Pressable>
+              {['CHO_XAC_NHAN', 'DANG_PHA_CHE', 'CHO_LAY_MON', 'DANG_PHUC_VU', 'CHO_THANH_TOAN', 'DA_THANH_TOAN', 'HOAN_TAT', 'DA_HUY'].map(status => {
+                const style = getStatusStyle(status);
+                const isSelected = selectedStatus === status;
+                return (
+                  <Pressable
+                    key={status}
+                    style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: isSelected ? '#10B981' : '#E2E8F0', backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF' }}
+                    onPress={() => setSelectedStatus(status)}
+                  >
+                    <Text style={{ color: isSelected ? '#047857' : '#475569', fontSize: 13, fontWeight: '500' }}>{style.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable
+              style={{ width: '100%', padding: 14, backgroundColor: '#10B981', borderRadius: 12, alignItems: 'center' }}
+              onPress={handleApplyFilter}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 15 }}>Áp dụng</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <DatePicker
+        modal
+        open={openStartDatePicker}
+        date={startDate || new Date()}
+        mode="date"
+        onConfirm={(date) => {
+          setOpenStartDatePicker(false);
+          setStartDate(date);
+          setOpenEndDatePicker(true);
+        }}
+        onCancel={() => {
+          setOpenStartDatePicker(false);
+        }}
+      />
+      <DatePicker
+        modal
+        open={openEndDatePicker}
+        date={endDate || startDate || new Date()}
+        mode="date"
+        onConfirm={(date) => {
+          setOpenEndDatePicker(false);
+          setEndDate(date);
+        }}
+        onCancel={() => {
+          setOpenEndDatePicker(false);
+        }}
       />
     </View>
   );

@@ -14,8 +14,9 @@ import Payment from './src/screens/Payment';
 import PaymentSuccess from './src/screens/PaymentSuccess';
 import Report from './src/screens/Report';
 
-import { StatusBar, View, ActivityIndicator, LogBox } from 'react-native';
+import { StatusBar, View, ActivityIndicator, LogBox, DeviceEventEmitter } from 'react-native';
 import safeAsyncStorage from './src/utils/storage';
+import messaging from '@react-native-firebase/messaging';
 
 // Ẩn toàn bộ cảnh báo LogBox (khung đen dưới màn hình) trên toàn app
 LogBox.ignoreAllLogs();
@@ -28,6 +29,31 @@ const App = () => {
 
   useEffect(() => {
     checkLoginSession();
+
+    // Setup Firebase Cloud Messaging
+    const setupFCM = async () => {
+      try {
+        const authStatus = await messaging().requestPermission();
+        const enabled =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (enabled) {
+          await messaging().subscribeToTopic('THU_NGAN');
+          console.log('Subscribed to THU_NGAN topic!');
+        }
+      } catch (error) {
+        console.log('FCM Setup error:', error);
+      }
+    };
+    setupFCM();
+
+    // Handle foreground messages
+    const unsubscribe = messaging().onMessage(async remoteMessage => {
+      DeviceEventEmitter.emit('FCM_MESSAGE', remoteMessage);
+    });
+
+    return unsubscribe;
   }, []);
 
   const checkLoginSession = async () => {

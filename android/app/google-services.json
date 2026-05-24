@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "4317490173",
+    "firebase_url": "https://matchatea01-7cf29-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "matchatea01-7cf29",
+    "storage_bucket": "matchatea01-7cf29.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:4317490173:android:340db85f25bfd011008794",
+        "android_client_info": {
+          "package_name": "com.matchteawaiter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRSkgoo1-jJ70pwAg8Q8pF7QXFwNibPP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:4317490173:android:340db85f25bfd011008794",
+        "android_client_info": {
+          "package_name": "com.matchteacashier"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRSkgoo1-jJ70pwAg8Q8pF7QXFwNibPP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

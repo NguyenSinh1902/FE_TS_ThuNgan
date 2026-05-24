@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Image,
   TextInput,
   RefreshControl,
+  DeviceEventEmitter,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Users, Clock, Bell, Grid, FileText, BarChart2, Settings, User, Search, Sliders, Coffee } from 'lucide-react-native';
@@ -19,10 +20,12 @@ import invoiceApi from '../../api/invoiceApi';
 import staffApi from '../../api/staffApi';
 import reservationApi from '../../api/reservationApi';
 import safeAsyncStorage from '../../utils/storage';
+import { listenToFirebase } from '../../utils/firebaseListener';
 import TakeawayTab from './TakeawayTab';
 import UserProfileModal from './components/UserProfileModal';
 import FilterModal from './components/FilterModal';
-import NotificationModal from './components/NotificationModal';
+import NotificationModal, { pushNotification } from './components/NotificationModal';
+import CashierToast from '../../components/CashierToast';
 import MenuTab from './components/MenuTab';
 import StatsTab from './components/StatsTab';
 import SettingsTab from './components/SettingsTab';
@@ -139,7 +142,13 @@ const TableCard = React.memo(({ item, onNavigate }) => {
           </View>
           <View style={styles.timeWrap}>
             <Clock size={16} color="#1E293B" strokeWidth={2.5} />
-            <DurationTimer startTime={item.invoice ? item.invoice.thoiGianTao : null} />
+            {item.status === 'RESERVED' && item.reservation?.thoiGianDat ? (
+              <Text style={styles.timeTextObj}>
+                {item.reservation.thoiGianDat.split('T')[1]?.substring(0, 5) || '00:00'}
+              </Text>
+            ) : (
+              <DurationTimer startTime={item.invoice ? item.invoice.thoiGianTao : null} />
+            )}
           </View>
         </View>
 
@@ -178,6 +187,11 @@ const Home = ({ onNavigate }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isProfileVisible, setIsProfileVisible] = useState(false);
   const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info', buttons: [] });
+  const [activeToast, setActiveToast] = useState(null);
+
+  // Ref giữ state mới nhất để dùng trong Firebase callback (tránh stale closure)
+  const tablesRef = useRef([]);
+  const notifiedOrdersRef = useRef(new Set());
 
   // Filter and Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -201,6 +215,139 @@ const Home = ({ onNavigate }) => {
   useEffect(() => {
     fetchData();
     fetchUserProfile();
+
+    // Lắng nghe FCM từ App.js — dùng đúng title/body BE gửi, không tự tạo
+    const fcmListener = DeviceEventEmitter.addListener('FCM_MESSAGE', (remoteMessage) => {
+      const title = remoteMessage.notification?.title || 'Thông báo';
+      const body = remoteMessage.notification?.body || '';
+
+      // Map type dựa trên emoji/từ khóa BE gửi lên (khớp chính xác với BE code)
+      let type = 'info';
+      if (title.includes('🚨') || title.includes('HỦY')) type = 'cancelled';
+      else if (title.includes('💵') || title.includes('thanh toán')) type = 'payment';
+      else if (title.includes('✅') || title.includes('hoàn tất')) type = 'completed';
+      else if (title.includes('📅') || title.includes('đặt lịch')) type = 'reservation';
+      else if (title.includes('🏃') || title.includes('đã đến')) type = 'reservation';
+      else if (title.includes('🔄') || title.includes('Chuyển bàn')) type = 'info';
+      else if (title.includes('✨') || title.includes('Mở bàn')) type = 'info';
+      else if (title.includes('➕') || title.includes('Gộp')) type = 'info';
+
+      setActiveToast({ id: `fcm_${Date.now()}`, type, message: body, duration: 8000 });
+      pushNotification({ title, message: body, type });
+
+      // Reload data sau 1.5s để UI đồng bộ với BE
+      setTimeout(() => fetchData(true), 1500);
+    });
+
+    // ─── Firebase Realtime Listeners ───
+
+    // Snapshot cuối của orders để phát hiện thay đổi tongThanhToan/lastUpdate
+    let lastOrdersSnapshot = null;
+
+    // 1. Node /tables: chỉ cập nhật trạng thái bàn khi STATUS thực sự đổi
+    // Không trigger fetchData liên tục — tránh race condition với orders listener
+    let prevTableStatuses = {};
+    const tableListener = listenToFirebase('tables', firebaseTables => {
+      if (!firebaseTables || typeof firebaseTables !== 'object') return;
+      const fbList = Object.values(firebaseTables).filter(t => t !== null && t?.idBan != null);
+
+      // Chỉ track thay đổi để update UI, KHÔNG tự tạo thông báo (FCM lo phần đó)
+      let hasStatusChange = false;
+      fbList.forEach(fb => {
+        const prevStatus = prevTableStatuses[fb.idBan];
+        if (prevStatus !== undefined && prevStatus !== fb.tinhTrang) {
+          hasStatusChange = true;
+        }
+        if (prevStatus !== fb.tinhTrang) {
+          prevTableStatuses[fb.idBan] = fb.tinhTrang;
+        }
+      });
+
+      // Chỉ cập nhật state khi có bàn đổi status thực sự
+      if (hasStatusChange) {
+        setTables(prevTables => {
+          const next = prevTables.map(t => {
+            const fb = fbList.find(f => f.idBan == t.id);
+            if (!fb) return t;
+            let newStatus = t.status;
+            if (fb.tinhTrang === 'TRONG') newStatus = 'AVAILABLE';
+            else if (fb.tinhTrang === 'CO_KHACH') newStatus = 'OCCUPIED';
+            else if (fb.tinhTrang === 'DA_DAT') newStatus = 'RESERVED';
+            if (newStatus === t.status) return t;
+            // Bàn vừa giải phóng → xóa invoice
+            return newStatus === 'AVAILABLE'
+              ? { ...t, status: newStatus, invoice: null }
+              : { ...t, status: newStatus };
+          });
+          tablesRef.current = next;
+          return next;
+        });
+
+        // Khi có bàn đổi trạng thái → fetch lại toàn bộ (đặt bàn, giải phóng bàn)
+        setTimeout(() => fetchData(true), 800);
+      }
+    });
+
+    // 2. Node /orders: phát hiện thay đổi đơn hàng → fetch data mới + toast
+    const STATUS_RANK = {
+      CHO_XAC_NHAN: 0, DANG_PHA_CHE: 1, CHO_LAY_MON: 2,
+      DANG_PHUC_VU: 3, CHO_THANH_TOAN: 4, DA_THANH_TOAN: 5,
+      HOAN_TAT: 6, DA_HUY: 6,
+    };
+    const shouldUpdate = (localStatus, fbStatus) => {
+      const lr = STATUS_RANK[localStatus] ?? -1;
+      const fr = STATUS_RANK[fbStatus] ?? -1;
+      return fr >= lr;
+    };
+
+    const orderListener = listenToFirebase('orders', firebaseOrders => {
+      if (!firebaseOrders || typeof firebaseOrders !== 'object') return;
+      const orderUpdates = Object.values(firebaseOrders).filter(o => o !== null && o?.idHoaDon != null);
+
+      // Tạo snapshot tổng để phát hiện bất kỳ thay đổi nào (tongThanhToan, trangThai, lastUpdate)
+      const currentSnapshot = orderUpdates
+        .map(o => `${o.idHoaDon}:${o.tongThanhToan}:${o.trangThai}:${o.lastUpdate || ''}`)
+        .sort()
+        .join('|');
+
+      const isFirstPoll = lastOrdersSnapshot === null;
+      const hasOrderChange = !isFirstPoll && currentSnapshot !== lastOrdersSnapshot;
+      lastOrdersSnapshot = currentSnapshot;
+
+      if (isFirstPoll) return; // Lần đầu: chỉ ghi snapshot, không làm gì
+
+      if (!hasOrderChange) return; // Không thay đổi → bỏ qua
+
+      // === CÓ THAY ĐỔI === (chỉ sync data + UI, FCM lo phần thông báo)
+
+      // Cập nhật trực tiếp tongThanhToan/trangThai vào local state (nhanh, không cần gọi API)
+      setTables(prevTables => {
+        let changed = false;
+        const next = prevTables.map(t => {
+          if (!t.invoice) return t;
+          const fbOrder = orderUpdates.find(o => o.idHoaDon == t.invoice.idHoaDon);
+          if (!fbOrder) return t;
+          if (!shouldUpdate(t.invoice.trangThai, fbOrder.trangThai)) return t;
+          if (
+            fbOrder.trangThai === t.invoice.trangThai &&
+            Number(fbOrder.tongThanhToan) === Number(t.invoice.tongThanhToan)
+          ) return t;
+          changed = true;
+          return { ...t, invoice: { ...t.invoice, trangThai: fbOrder.trangThai, tongThanhToan: fbOrder.tongThanhToan } };
+        });
+        if (changed) tablesRef.current = next;
+        return changed ? next : prevTables;
+      });
+
+      // Sau 1.5s, gọi API để đảm bảo danhSachChiTiet và các field khác cũng được sync
+      setTimeout(() => fetchData(true), 1500);
+    });
+
+    return () => {
+      tableListener.stop();
+      orderListener.stop();
+      fcmListener.remove();
+    };
   }, []);
 
   const fetchUserProfile = async () => {
@@ -256,14 +403,11 @@ const Home = ({ onNavigate }) => {
           let invoiceData = null;
           let activeReservation = null;
           if (status === 'OCCUPIED' || status === 'RESERVED') {
-            // 1. Tìm phiếu đặt đang hoạt động của bàn này trước
             activeReservation = reservations.find(r => r.danhSachBan?.some(b => b.tenBan === t.tenBan));
-            
-            // 2. Chỉ lấy hóa đơn gắn liền với phiếu đặt ĐANG HOẠT ĐỘNG đó
             if (activeReservation) {
-              invoiceData = invoices.find(inv => 
-                inv.idPhieuDat === activeReservation.idPhieuDat && 
-                inv.trangThai !== 'HOAN_TAT' && 
+              invoiceData = invoices.find(inv =>
+                inv.idPhieuDat === activeReservation.idPhieuDat &&
+                inv.trangThai !== 'HOAN_TAT' &&
                 inv.trangThai !== 'DA_HUY'
               );
             }
@@ -279,6 +423,7 @@ const Home = ({ onNavigate }) => {
           };
         });
         setTables(mappedTables);
+        tablesRef.current = mappedTables;
       }
     } catch (error) {
       console.error('Fetch data failed:', error);
@@ -501,11 +646,11 @@ const Home = ({ onNavigate }) => {
             )}
           </>
         ) : activeMenu === 'HISTORY' ? (
-          <HistoryTab />
+          <HistoryTab onShowNoti={() => setShowNotiModal(true)} />
         ) : activeMenu === 'MENU' ? (
           <MenuTab />
         ) : activeMenu === 'STATS' ? (
-          <StatsTab />
+          <StatsTab onChangeMenu={setActiveMenu} />
         ) : activeMenu === 'SETTINGS' ? (
           <SettingsTab user={currentUser} onLogout={handleLogout} />
         ) : (
@@ -535,6 +680,10 @@ const Home = ({ onNavigate }) => {
         type={alert.type}
         buttons={alert.buttons}
         onClose={() => setAlert({ ...alert, visible: false })}
+      />
+      <CashierToast
+        toast={activeToast}
+        onDismiss={() => setActiveToast(null)}
       />
     </View>
   );
