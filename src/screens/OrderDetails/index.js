@@ -204,6 +204,17 @@ const OrderDetails = ({ onNavigate, params }) => {
         const found = res.find(r => r.danhSachBan?.some(b => params?.tableName?.includes(b.tenBan)));
         if (found) {
           setReservation(found);
+          // Tự động tìm khách hàng theo SDT của phiếu đặt
+          if (found.sdtKhachHang) {
+            try {
+              const customer = await customerApi.searchByPhone(found.sdtKhachHang);
+              if (customer) {
+                setFoundMember(customer);
+              }
+            } catch (e) {
+              // Bỏ qua nếu không tìm thấy (khách vãng lai)
+            }
+          }
         }
       }
     } catch (err) {

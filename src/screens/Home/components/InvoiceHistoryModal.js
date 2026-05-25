@@ -9,11 +9,16 @@ import invoiceApi from '../../../api/invoiceApi';
 const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [invoice, setInvoice] = useState(null);
+  const [vietQRData, setVietQRData] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
   const { width } = useWindowDimensions();
   const isTablet = width >= 700;
 
   useEffect(() => {
     if (isVisible && invoiceId) {
+      setInvoice(null);
+      setVietQRData(null);
+      setFetchError(null);
       fetchInvoiceDetail();
     }
   }, [isVisible, invoiceId]);
@@ -23,25 +28,35 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
     try {
       const response = await invoiceApi.getInvoiceDetails(invoiceId);
       setInvoice(response);
+      
+      if (response && response.trangThai !== 'DA_HUY') {
+        try {
+          const qrRes = await invoiceApi.getVietQR(invoiceId);
+          setVietQRData(qrRes);
+        } catch (err) {
+          console.error('Error fetching VietQR:', err);
+        }
+      }
     } catch (error) {
       console.error('Error fetching invoice detail:', error);
+      setFetchError(error.message || 'Không thể lấy dữ liệu đơn hàng này');
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusConfig = (status) => {
     const map = {
-      'CHO_XAC_NHAN': 'Chờ xác nhận',
-      'DANG_PHA_CHE': 'Đang pha chế',
-      'CHO_LAY_MON': 'Chờ lấy món',
-      'DANG_PHUC_VU': 'Đang phục vụ',
-      'CHO_THANH_TOAN': 'Chờ thanh toán',
-      'DA_THANH_TOAN': 'Đã thanh toán',
-      'HOAN_TAT': 'Hoàn tất',
-      'DA_HUY': 'Đã hủy',
+      'CHO_XAC_NHAN': { label: 'Chờ xác nhận', bg: '#F3F4F6', color: '#4A5565' },
+      'DANG_PHA_CHE': { label: 'Đang pha chế', bg: 'rgba(139, 163, 103, 0.1)', color: '#8BA367' },
+      'CHO_LAY_MON': { label: 'Chờ lấy món', bg: '#FFEDD4', color: '#F54900' },
+      'DANG_PHUC_VU': { label: 'Đang phục vụ', bg: '#E0F2FE', color: '#0284C7' },
+      'CHO_THANH_TOAN': { label: 'Chờ thanh toán', bg: '#FEF3C6', color: '#E17100' },
+      'DA_THANH_TOAN': { label: 'Đã thanh toán', bg: 'rgba(139, 163, 103, 0.2)', color: '#8BA367' },
+      'HOAN_TAT': { label: 'Hoàn tất', bg: 'rgba(139, 163, 103, 0.2)', color: '#8BA367' },
+      'DA_HUY': { label: 'Đã hủy', bg: '#FFE2E2', color: '#E7000B' },
     };
-    return map[status] || status;
+    return map[status] || { label: status, bg: '#F3F4F6', color: '#4A5565' };
   };
 
   const formatTime = (isoString) => {
@@ -56,7 +71,7 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
   };
 
   return (
-    <Modal visible={isVisible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={isVisible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.backdrop}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
         
@@ -65,7 +80,18 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
           <View style={styles.header}>
             <View>
               <Text style={styles.headerTitle}>Chi tiết hóa đơn #{invoiceId}</Text>
-              <Text style={styles.headerSubtitle}>Mã giao dịch hệ thống • {invoice?.trangThai ? getStatusLabel(invoice.trangThai) : '---'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                <Text style={[styles.headerSubtitle, { marginTop: 0, marginRight: 8 }]}>Mã giao dịch hệ thống •</Text>
+                {invoice?.trangThai ? (
+                  <View style={{ backgroundColor: getStatusConfig(invoice.trangThai).bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: getStatusConfig(invoice.trangThai).color }}>
+                      {getStatusConfig(invoice.trangThai).label}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.headerSubtitle, { marginTop: 0 }]}>---</Text>
+                )}
+              </View>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
               <Text style={styles.closeBtnText}>✕</Text>
@@ -76,6 +102,11 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#8BA367" />
               <Text style={styles.loadingText}>Đang tải thông tin...</Text>
+            </View>
+          ) : fetchError ? (
+            <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+              <Text style={{fontSize: 16, color: '#E7000B', fontWeight: 'bold'}}>{fetchError}</Text>
+              <Text style={{marginTop: 8, color: '#64748B'}}>Có thể đơn hàng này đã bị xóa hoặc API lỗi.</Text>
             </View>
           ) : invoice ? (
             <View style={{flex: 1, flexDirection: 'row'}}>
@@ -89,9 +120,15 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
                       <Text style={styles.infoValue}>{invoice.loaiDonHang === 'MANG_VE' ? '🛍️ Mang về' : `🪑 Tại bàn (${invoice.danhSachTenBan?.join(', ') || '---'})`}</Text>
                     </View>
                     <View style={styles.infoCard}>
-                      <Text style={styles.infoLabel}>Nhân viên lập</Text>
-                      <Text style={styles.infoValue}>{invoice.tenNhanVien || '---'}</Text>
+                      <Text style={styles.infoLabel}>Thu ngân</Text>
+                      <Text style={styles.infoValue}>{invoice.tenThuNgan || '---'}</Text>
                     </View>
+                    {invoice.tenPhucVu && (
+                      <View style={styles.infoCard}>
+                        <Text style={styles.infoLabel}>Phục vụ</Text>
+                        <Text style={styles.infoValue}>{invoice.tenPhucVu}</Text>
+                      </View>
+                    )}
                     <View style={styles.infoCard}>
                       <Text style={styles.infoLabel}>Khách hàng</Text>
                       <Text style={styles.infoValue}>{invoice.tenKhachHang || 'Khách vãng lai'}</Text>
@@ -118,6 +155,11 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
                           {item.tuyChonJson && (
                             <Text style={styles.itemOptions}>
                               {Object.values(JSON.parse(item.tuyChonJson)).filter(v => v).join(' • ')}
+                            </Text>
+                          )}
+                          {item.danhSachTopping && item.danhSachTopping.length > 0 && (
+                            <Text style={styles.itemOptions}>
+                              + {item.danhSachTopping.map(t => `${t.tenSanPham || t.tenTopping}${t.soLuong > 1 ? ` (x${t.soLuong})` : ''}`).join(', ')}
                             </Text>
                           )}
                         </View>
@@ -166,6 +208,13 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
                             <Text style={[styles.totalValue, {color: '#8BA367'}]}>-{formatPrice(invoice.diemSuDung * 1000)}</Text>
                           </View>
                         )}
+                        
+                        {invoice.giamGiaThanhVien > 0 && (
+                          <View style={styles.totalRow}>
+                            <Text style={styles.totalLabel}>Thành viên</Text>
+                            <Text style={[styles.totalValue, {color: '#8BA367'}]}>-{formatPrice(invoice.giamGiaThanhVien)}</Text>
+                          </View>
+                        )}
 
                         {invoice.danhSachThuePhi?.map((t, i) => (
                           <View key={i} style={styles.totalRow}>
@@ -180,19 +229,21 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
                         </View>
                       </View>
 
-                      <View style={styles.receiptQR}>
-                        <Image 
-                          source={require('../../../assets/images/qr_pay.png')}
-                          style={{ width: 120, height: 120 }}
-                          resizeMode="contain"
-                        />
-                        <Text style={styles.receiptFooter}>Quét để kiểm tra giao dịch</Text>
-                      </View>
+                      {invoice.trangThai !== 'DA_HUY' && (
+                        <View style={styles.receiptQR}>
+                          <Image 
+                            source={vietQRData?.qrImageUrl ? { uri: vietQRData.qrImageUrl } : require('../../../assets/images/qr_pay.png')}
+                            style={{ width: 120, height: 120 }}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.receiptFooter}>Quét để kiểm tra giao dịch</Text>
+                        </View>
+                      )}
                     </ScrollView>
                   </View>
 
-                  <TouchableOpacity style={styles.printBtn}>
-                    <Text style={styles.printBtnText}>🖨️ In lại hóa đơn</Text>
+                  <TouchableOpacity style={[styles.printBtn, { backgroundColor: '#1E293B', shadowColor: '#1E293B' }]} onPress={onClose}>
+                    <Text style={styles.printBtnText}>✓ Xong</Text>
                   </TouchableOpacity>
                </View>
             </View>

@@ -171,7 +171,12 @@ const TableCard = React.memo(({ item, onNavigate }) => {
         style={StyleSheet.absoluteFill}
         activeOpacity={0.6} delayPressIn={0}
         onPress={() => {
-          if (item.invoice) onNavigate('OrderDetails', { invoiceId: item.invoice.idHoaDon, tableName: item.name });
+          if (item.invoice || item.reservation) {
+            onNavigate('OrderDetails', { 
+              invoiceId: item.invoice?.idHoaDon, 
+              tableName: item.name 
+            });
+          }
         }}
       />
     </View>
