@@ -34,6 +34,9 @@ const invoiceApi = {
   cancelOrder: (id) => {
     return axiosClient.delete(`/hoa-don/${id}/huy`);
   },
+  getVietQR: (id) => {
+    return axiosClient.get(`/hoa-don/${id}/qr-code`);
+  },
 };
 
 export default invoiceApi;

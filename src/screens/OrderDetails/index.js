@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
-  Alert
+  Alert,
+  RefreshControl
 } from 'react-native';
 
 import LinearGradient from 'react-native-linear-gradient';
@@ -48,6 +49,21 @@ const OrderDetails = ({ onNavigate, params }) => {
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [fees, setFees] = useState([]);
+  const [vietQRData, setVietQRData] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    if (params?.invoiceId) {
+      await fetchInvoiceDetail(params.invoiceId, true);
+      await fetchVietQR(params.invoiceId);
+    }
+    await fetchFees();
+    await fetchVouchers();
+    await fetchReservation();
+    await fetchUserProfile();
+    setRefreshing(false);
+  };
 
   const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('CHO_XAC_NHAN');
@@ -127,6 +143,7 @@ const OrderDetails = ({ onNavigate, params }) => {
   useEffect(() => {
     if (params?.invoiceId) {
       fetchInvoiceDetail(params.invoiceId);
+      fetchVietQR(params.invoiceId);
     } else {
       setLoading(false);
     }
@@ -161,7 +178,7 @@ const OrderDetails = ({ onNavigate, params }) => {
       // Có thay đổi (thêm món, sửa món, đổi trạng thái) → refresh đầy đủ từ API
       lastSnapshot = snapshot;
       setRealtimeRefreshing(true);
-      fetchInvoiceDetail(targetId).finally(() => setRealtimeRefreshing(false));
+      fetchInvoiceDetail(targetId, true).finally(() => setRealtimeRefreshing(false));
     });
 
     return () => orderListener.stop();
@@ -259,9 +276,9 @@ const OrderDetails = ({ onNavigate, params }) => {
     }
   };
 
-  const fetchInvoiceDetail = async (id) => {
+  const fetchInvoiceDetail = async (id, isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const res = await invoiceApi.getInvoiceDetails(id);
       setInvoice(res);
 
@@ -271,7 +288,16 @@ const OrderDetails = ({ onNavigate, params }) => {
     } catch (err) {
       console.error('Failed to fetch invoice detail', err);
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
+    }
+  };
+
+  const fetchVietQR = async (id) => {
+    try {
+      const res = await invoiceApi.getVietQR(id);
+      setVietQRData(res);
+    } catch (err) {
+      console.error('Failed to fetch VietQR', err);
     }
   };
 
@@ -690,7 +716,13 @@ const OrderDetails = ({ onNavigate, params }) => {
                     </View>
                   </View>
 
-                  <ScrollView style={styles.leftProductScroll} showsVerticalScrollIndicator={false}>
+                  <ScrollView
+                    style={styles.leftProductScroll}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                      <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#8BA367']} />
+                    }
+                  >
                     <View style={styles.productGrid}>
                       {(invoice?.danhSachChiTiet || []).map((item, index) => {
                         let details = item.tenKichCo || '';
@@ -868,7 +900,7 @@ const OrderDetails = ({ onNavigate, params }) => {
       />
 
       {/* 💳 ADVANCED PAYMENT DASHBOARD MODAL */}
-      <Modal visible={isPaymentModalVisible} transparent animationType="fade">
+      <Modal visible={isPaymentModalVisible} transparent animationType="fade" statusBarTranslucent>
         <View style={styles.modalOverlay}>
           <View style={styles.paymentModalContent}>
             {/* ── LEFT PANE: Bill Proforma ── */}
@@ -1011,14 +1043,14 @@ const OrderDetails = ({ onNavigate, params }) => {
 
                         <View style={styles.dashboardQRImg}>
                           <Image
-                            source={require('../../assets/images/qr_pay.png')}
+                            source={vietQRData?.qrImageUrl ? { uri: vietQRData.qrImageUrl } : require('../../assets/images/qr_pay.png')}
                             style={{ width: 124, height: 124 }}
                             resizeMode="contain"
                           />
                         </View>
 
                         <View style={{ marginTop: 4, alignItems: 'center' }}>
-                          <Text style={styles.qrInfoText}>STK: 0123456789 - MB Bank</Text>
+                          <Text style={styles.qrInfoText}>{vietQRData?.nộiDungChuyenKhoan ? `Nội dung CK: ${vietQRData.nộiDungChuyenKhoan}` : 'STK: 0123456789 - MB Bank'}</Text>
                           <Text style={styles.qrSubInfoText}>CTK: MATCHTEA COFFEE</Text>
                         </View>
                       </View>
@@ -1097,7 +1129,7 @@ const OrderDetails = ({ onNavigate, params }) => {
       </Modal>
 
       {/* Status Modal */}
-      <Modal visible={isStatusModalVisible} transparent animationType="slide">
+      <Modal visible={isStatusModalVisible} transparent animationType="slide" statusBarTranslucent>
         <TouchableWithoutFeedback onPress={() => setIsStatusModalVisible(false)}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
@@ -1173,7 +1205,7 @@ const OrderDetails = ({ onNavigate, params }) => {
       />
 
       {/* Voucher Modal */}
-      <Modal visible={showVoucherModal} transparent animationType="fade">
+      <Modal visible={showVoucherModal} transparent animationType="fade" statusBarTranslucent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1311,7 +1343,7 @@ const OrderDetails = ({ onNavigate, params }) => {
       </Modal>
 
       {/* Tax Modal */}
-      <Modal visible={showTaxModal} transparent animationType="fade">
+      <Modal visible={showTaxModal} transparent animationType="fade" statusBarTranslucent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1352,7 +1384,7 @@ const OrderDetails = ({ onNavigate, params }) => {
       </Modal>
 
       {/* 📄 PHYSICAL RECEIPT MODAL */}
-      <Modal visible={showReceiptModal} transparent animationType="slide">
+      <Modal visible={showReceiptModal} transparent animationType="slide" statusBarTranslucent>
         <View style={styles.receiptModalOverlay}>
           <View style={styles.receiptPaper}>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 600 }}>
@@ -1474,13 +1506,13 @@ const OrderDetails = ({ onNavigate, params }) => {
 
               <View style={styles.receiptQR}>
                 <Image
-                  source={require('../../assets/images/qr_pay.png')}
+                  source={vietQRData?.qrImageUrl ? { uri: vietQRData.qrImageUrl } : require('../../assets/images/qr_pay.png')}
                   style={styles.receiptQRImg}
                   resizeMode="contain"
                 />
               </View>
               <Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', marginTop: 8, color: '#1E293B' }}>
-                STK: 0123456789 - MB Bank
+                {vietQRData?.nộiDungChuyenKhoan ? `Nội dung CK: ${vietQRData.nộiDungChuyenKhoan}` : 'STK: 0123456789 - MB Bank'}
               </Text>
               <Text style={{ textAlign: 'center', fontSize: 10, color: '#64748B', marginTop: 2 }}>
                 CTK: MATCHTEA COFFEE
@@ -1511,7 +1543,7 @@ const OrderDetails = ({ onNavigate, params }) => {
       </Modal>
 
       {/* Cancel Confirmation Modal */}
-      <Modal visible={showCancelModal} transparent animationType="fade">
+      <Modal visible={showCancelModal} transparent animationType="fade" statusBarTranslucent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { width: 400, alignItems: 'center', paddingVertical: 40 }]}>
             <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
@@ -1542,7 +1574,7 @@ const OrderDetails = ({ onNavigate, params }) => {
       </Modal>
 
       {/* 🔔 TOAST MESSAGE (Wrapped in Modal to be on top of other modals) */}
-      <Modal visible={!!toast} transparent animationType="fade">
+      <Modal visible={!!toast} transparent animationType="fade" statusBarTranslucent>
         <View style={{ flex: 1, pointerEvents: 'none' }}>
           <View style={[
             styles.toastContainer,

@@ -461,7 +461,7 @@ const Home = ({ onNavigate }) => {
         <View style={styles.logoCircle}><Text style={{ fontSize: 18 }}>🍵</Text></View>
         {isSidebarExpanded && (
           <View style={styles.appTitleWrapper}>
-            <Text style={styles.appTitle} numberOfLines={1}>MatchTea Cashier</Text>
+            <Text style={styles.appTitle} numberOfLines={1}>MatchTea</Text>
             <Text style={styles.appSubtitle} numberOfLines={1}>App Thu ngân</Text>
           </View>
         )}
