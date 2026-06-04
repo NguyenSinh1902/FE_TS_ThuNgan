@@ -112,9 +112,9 @@ export default StyleSheet.create({
   grandTotalValue: { fontSize: 28, fontWeight: '900', color: '#E11D48' },
 
   actionBtnRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  actionBtnBase: { borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6 },
-  actionBtnInner: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  actionBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
+  actionBtnBase: { flex: 1, height: 56, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6 },
+  actionBtnInner: { flex: 1, borderRadius: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  actionBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', letterSpacing: 0.5, textAlign: 'center' },
 
   // Summary Items (used in footer box)
   grandTotalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

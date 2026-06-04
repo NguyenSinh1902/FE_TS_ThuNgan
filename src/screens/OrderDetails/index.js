@@ -106,7 +106,7 @@ const OrderDetails = ({ onNavigate, params }) => {
   const [toastType, setToastType] = useState('success');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [realtimeRefreshing, setRealtimeRefreshing] = useState(false); // silent refresh indicator
-  
+
   const receiptRef = useRef();
 
   const handleDownloadInvoice = async () => {
@@ -452,13 +452,13 @@ const OrderDetails = ({ onNavigate, params }) => {
   const bestVoucherId = vouchers.reduce((bestId, v) => {
     const minOrder = Number(v.donToiThieu || v.giaTriDonHangToiThieu || 0);
     if (subtotal < minOrder) return bestId;
-    
+
     const currentDiscount = getVoucherDiscountAmount(v);
     if (!bestId) return currentDiscount > 0 ? v.idKhuyenMai : null;
-    
+
     const bestVoucher = vouchers.find(x => x.idKhuyenMai === bestId);
     const bestDiscount = getVoucherDiscountAmount(bestVoucher);
-    
+
     return currentDiscount > bestDiscount ? v.idKhuyenMai : bestId;
   }, null);
 
@@ -532,32 +532,80 @@ const OrderDetails = ({ onNavigate, params }) => {
 
 
   const isTakeaway = invoice?.loaiDonHang === 'MANG_VE';
-  const steps = [
-    { label: 'Xác nhận', icon: '🕒' },
-    { label: 'Pha chế', icon: '☕' },
-    { label: isTakeaway ? 'Lấy món' : 'Phục vụ', icon: isTakeaway ? '🛍️' : '🍽️' },
-    { label: 'Chờ T.Toán', icon: '💳' },
-    { label: 'Đã T.Toán', icon: '💰' },
-    { label: 'Hoàn tất', icon: '✅' },
-  ];
+  const isDelivery = invoice?.loaiDonHang === 'GIAO_HANG';
+
+  let steps = [];
+  if (isDelivery) {
+    steps = [
+      { label: 'Xác nhận', icon: '🕒' },
+      { label: 'Pha chế', icon: '☕' },
+      { label: 'Chờ shipper', icon: '🛍️' },
+      { label: 'Đang giao', icon: '🚚' },
+      { label: 'Hoàn tất', icon: '✅' },
+    ];
+  } else if (isTakeaway) {
+    steps = [
+      { label: 'Xác nhận', icon: '🕒' },
+      { label: 'Pha chế', icon: '☕' },
+      { label: 'Lấy món', icon: '🛍️' },
+      { label: 'Chờ T.Toán', icon: '💳' },
+      { label: 'Đã T.Toán', icon: '💰' },
+      { label: 'Hoàn tất', icon: '✅' },
+    ];
+  } else {
+    steps = [
+      { label: 'Xác nhận', icon: '🕒' },
+      { label: 'Pha chế', icon: '☕' },
+      { label: 'Chờ lấy món', icon: '🔔' },
+      { label: 'Phục vụ', icon: '🍽️' },
+      { label: 'Chờ T.Toán', icon: '💳' },
+      { label: 'Đã T.Toán', icon: '💰' },
+      { label: 'Hoàn tất', icon: '✅' },
+    ];
+  }
 
   let currentStep = 1;
-  switch (currentStatus) {
-    case 'CHO_XAC_NHAN': currentStep = 1; break;
-    case 'DANG_PHA_CHE': currentStep = 2; break;
-    case 'CHO_LAY_MON':
-    case 'DANG_PHUC_VU': currentStep = 3; break;
-    case 'CHO_THANH_TOAN': currentStep = 4; break;
-    case 'DA_THANH_TOAN': currentStep = 5; break;
-    case 'HOAN_TAT': currentStep = 6; break;
-    case 'DA_HUY': currentStep = 0; break;
-    default: currentStep = 1;
+  if (isDelivery) {
+    switch (currentStatus) {
+      case 'CHO_XAC_NHAN': currentStep = 1; break;
+      case 'DANG_PHA_CHE': currentStep = 2; break;
+      case 'CHO_LAY_MON': currentStep = 3; break;
+      case 'DANG_GIAO_HANG': currentStep = 4; break;
+      case 'HOAN_TAT': currentStep = 5; break;
+      case 'DA_HUY': currentStep = 0; break;
+      default: currentStep = 1;
+    }
+  } else if (isTakeaway) {
+    switch (currentStatus) {
+      case 'CHO_XAC_NHAN': currentStep = 1; break;
+      case 'DANG_PHA_CHE': currentStep = 2; break;
+      case 'CHO_LAY_MON': currentStep = 3; break;
+      case 'CHO_THANH_TOAN': currentStep = 4; break;
+      case 'DA_THANH_TOAN': currentStep = 5; break;
+      case 'HOAN_TAT': currentStep = 6; break;
+      case 'DA_HUY': currentStep = 0; break;
+      default: currentStep = 1;
+    }
+  } else {
+    switch (currentStatus) {
+      case 'CHO_XAC_NHAN': currentStep = 1; break;
+      case 'DANG_PHA_CHE': currentStep = 2; break;
+      case 'CHO_LAY_MON': currentStep = 3; break;
+      case 'DANG_PHUC_VU': currentStep = 4; break;
+      case 'CHO_THANH_TOAN': currentStep = 5; break;
+      case 'DA_THANH_TOAN': currentStep = 6; break;
+      case 'HOAN_TAT': currentStep = 7; break;
+      case 'DA_HUY': currentStep = 0; break;
+      default: currentStep = 1;
+    }
   }
+
 
   const statusOptions = [
     { id: 'CHO_XAC_NHAN', label: 'Chờ xác nhận', icon: '🕒', bg: '#F3F4F6', color: '#4A5565' },
     { id: 'DANG_PHA_CHE', label: 'Đang pha chế', icon: '☕', bg: 'rgba(139, 163, 103, 0.1)', color: '#8BA367' },
     { id: 'CHO_LAY_MON', label: 'Chờ lấy món', icon: '🔔', bg: '#FFEDD4', color: '#F54900' },
+    { id: 'DANG_GIAO_HANG', label: 'Đang giao hàng', icon: '🚚', bg: '#F5F3FF', color: '#8B5CF6' },
     { id: 'DANG_PHUC_VU', label: 'Đang phục vụ', icon: '🍽️', bg: '#E0F2FE', color: '#0284C7' },
     { id: 'CHO_THANH_TOAN', label: 'Chờ thanh toán', icon: '💳', bg: '#FEF3C6', color: '#E17100' },
     { id: 'DA_THANH_TOAN', label: 'Đã thanh toán', icon: '💰', bg: 'rgba(139, 163, 103, 0.2)', color: '#8BA367' },
@@ -675,7 +723,7 @@ const OrderDetails = ({ onNavigate, params }) => {
               </View>
 
               {/* INFO CARD */}
-              {reservation && (
+              {reservation ? (
                 <View style={styles.infoCardWrapper}>
                   <LinearGradient
                     colors={['#FFFFFF', '#F1F5F9']}
@@ -710,7 +758,44 @@ const OrderDetails = ({ onNavigate, params }) => {
                     </View>
                   </LinearGradient>
                 </View>
-              )}
+              ) : (isTakeaway || isDelivery) ? (
+                <View style={styles.infoCardWrapper}>
+                  <LinearGradient
+                    colors={['#FFFFFF', '#F1F5F9']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.infoCard}
+                  >
+                    <View style={styles.infoCardHeader}>
+                      <View style={styles.tableTitleWrap}>
+                        <Text style={styles.tableTitle}>{params?.tableName || (isDelivery ? 'Giao Hàng' : 'Mang Về')}</Text>
+                        <View style={[styles.tableStatusBadge, { backgroundColor: isDelivery ? '#E0F2FE' : '#FFEDD4' }]}>
+                          <Text style={[styles.tableStatusText, { color: isDelivery ? '#0284C7' : '#F54900' }]}>{isDelivery ? 'App Khách (Online)' : 'Tại Quán'}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.customerNameRow}>
+                      <Text style={styles.customerNameText}>{invoice?.tenKhachHang || foundMember?.hoTen || 'Khách vãng lai'}</Text>
+                      {(invoice?.sdtKhachHang || foundMember?.soDienThoai) && (
+                        <Text style={styles.customerPhoneText}>- {invoice?.sdtKhachHang || foundMember?.soDienThoai}</Text>
+                      )}
+                    </View>
+                    {invoice?.tenThuNgan && (
+                      <View style={{ marginBottom: 8 }}>
+                        <Text style={{ fontSize: 14, color: '#64748B' }}>👩‍💻 Thu ngân: <Text style={{ fontWeight: '600', color: '#0F172A' }}>{invoice.tenThuNgan}</Text></Text>
+                      </View>
+                    )}
+                    <View style={styles.statsRow}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statText}>🛒 Loại: <Text style={{ fontWeight: '700' }}>{isDelivery ? 'Giao Hàng' : 'Mang Về'}</Text></Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statText}>🕒 Thời gian: <Text style={styles.timeHighlight}>{invoice?.thoiGianTao ? new Date(invoice.thoiGianTao).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</Text></Text>
+                      </View>
+                    </View>
+                  </LinearGradient>
+                </View>
+              ) : null}
 
               {/* PRODUCT LIST */}
               <View style={styles.productListWrapper}>
@@ -775,11 +860,11 @@ const OrderDetails = ({ onNavigate, params }) => {
               <View style={styles.rightCard}>
                 <Text style={styles.receiptSectionTitle}>Chức năng mở rộng</Text>
                 <View style={styles.actionBtnGridVertical}>
-                  <TouchableOpacity style={[styles.actionBtnLayered, foundMember && styles.actionBtnActive]} onPress={() => setShowMemberModal(true)}>
+                  <TouchableOpacity style={[styles.actionBtnLayered, (foundMember || invoice?.tenKhachHang) && styles.actionBtnActive]} onPress={() => setShowMemberModal(true)}>
                     <View style={styles.actionBtnIconWrap}><Text style={{ fontSize: 22 }}>👤</Text></View>
                     <View style={styles.actionBtnInfo}>
                       <Text style={styles.actionBtnTitle}>Khách hàng & Tích điểm</Text>
-                      <Text style={styles.actionBtnSub}>{foundMember ? `${foundMember.hoTen}` : 'Nhấn để định danh'}</Text>
+                      <Text style={styles.actionBtnSub}>{foundMember ? `${foundMember.hoTen}` : invoice?.tenKhachHang ? invoice.tenKhachHang : 'Nhấn để định danh'}</Text>
                     </View>
                   </TouchableOpacity>
 
@@ -798,6 +883,14 @@ const OrderDetails = ({ onNavigate, params }) => {
                       <Text style={styles.actionBtnSub}>{selectedFees.length > 0 ? `Đang áp dụng ${selectedFees.length}` : 'Nhấn để áp dụng'}</Text>
                     </View>
                   </TouchableOpacity>
+
+                  <TouchableOpacity style={[styles.actionBtnLayered, { backgroundColor: '#F8FAFC' }]} onPress={handlePrintInvoice}>
+                    <View style={[styles.actionBtnIconWrap, { backgroundColor: '#E2E8F0' }]}><Text style={{ fontSize: 22 }}>🖨️</Text></View>
+                    <View style={styles.actionBtnInfo}>
+                      <Text style={styles.actionBtnTitle}>In Hóa Đơn</Text>
+                      <Text style={styles.actionBtnSub}>In / Xuất biên lai hóa đơn</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -806,54 +899,56 @@ const OrderDetails = ({ onNavigate, params }) => {
                 <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 140 }}>
                   <View style={styles.summaryItem}>
                     <Text style={styles.summaryLabel}>Tạm tính</Text>
-                    <Text style={styles.summaryValue}>{formatPrice(subtotal)}</Text>
+                    <Text style={styles.summaryValue}>{formatPrice(isDelivery ? invoice?.tongTienHang : subtotal)}</Text>
                   </View>
-                  
-                  {voucherDiscount > 0 && (() => {
-                    const v = vouchers.find(x => selectedVouchers.includes(x.idKhuyenMai));
-                    const percentageStr = (v && v.loaiKhuyenMai === 'GIAM_PHAN_TRAM') ? ` (${v.giaTriGiam}%)` : '';
-                    return (
-                      <View style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>Khuyến mãi{percentageStr}</Text>
-                        <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(voucherDiscount)}</Text>
+
+                  {(isDelivery ? invoice?.giamGiaKhuyenMai > 0 : voucherDiscount > 0) && (
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryLabel}>Khuyến mãi</Text>
+                      <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(isDelivery ? invoice?.giamGiaKhuyenMai : voucherDiscount)}</Text>
+                    </View>
+                  )}
+
+                  {(isDelivery ? invoice?.giamGiaThanhVien > 0 : memberDiscount > 0) && (
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryLabel}>Giảm giá thành viên</Text>
+                      <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(isDelivery ? invoice?.giamGiaThanhVien : memberDiscount)}</Text>
+                    </View>
+                  )}
+
+                  {isDelivery ? (
+                    invoice?.danhSachThuePhi?.map((t, i) => (
+                      <View key={i} style={styles.summaryItem}>
+                        <Text style={styles.summaryLabel}>{t.tenThuePhi}{t.loaiGiaTri === 'PHAN_TRAM' ? ` (${t.giaTriTaiThoiDiemBan}%)` : ''}</Text>
+                        <Text style={styles.summaryValue}>+{formatPrice(t.soTienQuyDoi)}</Text>
                       </View>
-                    );
-                  })()}
+                    ))
+                  ) : (
+                    selectedFees.map(fId => {
+                      const f = fees.find(x => x.idThuePhi === fId);
+                      if (!f) return null;
 
-                  {memberDiscount > 0 && (() => {
-                    const percentageStr = foundMember?.hangThanhVien === 'VANG' ? ' (10%)' : foundMember?.hangThanhVien === 'BAC' ? ' (5%)' : '';
-                    return (
-                      <View style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>Giảm giá thành viên{percentageStr}</Text>
-                        <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(memberDiscount)}</Text>
-                      </View>
-                    );
-                  })()}
+                      let amount = 0;
+                      const percentageStr = f.loaiGiaTri === 'PHAN_TRAM' ? ` (${f.giaTri}%)` : '';
 
-                  {selectedFees.map(fId => {
-                    const f = fees.find(x => x.idThuePhi === fId);
-                    if (!f) return null;
-                    
-                    let amount = 0;
-                    const percentageStr = f.loaiGiaTri === 'PHAN_TRAM' ? ` (${f.giaTri}%)` : '';
-                    
-                    if (f.loaiGiaTri === 'PHAN_TRAM') {
-                      amount = (subtotal - voucherDiscount - memberDiscount) * f.giaTri / 100;
-                    } else if (f.loaiGiaTri === 'TIEN_MAT') {
-                      amount = f.giaTri;
-                    } else {
-                      amount = (subtotal - voucherDiscount - memberDiscount) * f.giaTri / 100;
-                    }
+                      if (f.loaiGiaTri === 'PHAN_TRAM') {
+                        amount = (subtotal - voucherDiscount - memberDiscount) * f.giaTri / 100;
+                      } else if (f.loaiGiaTri === 'TIEN_MAT') {
+                        amount = f.giaTri;
+                      } else {
+                        amount = (subtotal - voucherDiscount - memberDiscount) * f.giaTri / 100;
+                      }
 
-                    return (
-                      <View key={fId} style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>{f.tenThuePhi}{percentageStr}</Text>
-                        <Text style={styles.summaryValue}>+{formatPrice(Math.round(amount))}</Text>
-                      </View>
-                    );
-                  })}
+                      return (
+                        <View key={fId} style={styles.summaryItem}>
+                          <Text style={styles.summaryLabel}>{f.tenThuePhi}{percentageStr}</Text>
+                          <Text style={styles.summaryValue}>+{formatPrice(Math.round(amount))}</Text>
+                        </View>
+                      );
+                    })
+                  )}
 
-                  {pointsDiscount > 0 && (
+                  {pointsDiscount > 0 && !isDelivery && (
                     <View style={styles.summaryItem}>
                       <Text style={styles.summaryLabel}>Cấn trừ điểm</Text>
                       <Text style={[styles.summaryValue, { color: '#059669' }]}>-{formatPrice(pointsDiscount)}</Text>
@@ -863,13 +958,45 @@ const OrderDetails = ({ onNavigate, params }) => {
 
                 <View style={styles.grandTotalItem}>
                   <Text style={styles.grandTotalLabel}>TỔNG CỘNG</Text>
-                  <Text style={styles.grandTotalValue}>{formatPrice(total)}</Text>
+                  <Text style={styles.grandTotalValue}>{formatPrice(isDelivery ? invoice?.tongThanhToan : total)}</Text>
                 </View>
 
                 <View style={styles.actionBtnRow}>
+                  {currentStatus === 'CHO_XAC_NHAN' && (
+                    <TouchableOpacity
+                      style={styles.actionBtnBase}
+                      onPress={() => handleUpdateStatus('DANG_PHA_CHE')}
+                      disabled={updatingStatus}
+                    >
+                      <LinearGradient
+                        colors={['#F59E0B', '#D97706']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        style={styles.actionBtnInner}
+                      >
+                        <Text style={styles.actionBtnText}>XÁC NHẬN & BÁO BẾP</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
+
+                  {(isTakeaway || isDelivery) && currentStatus === 'CHO_LAY_MON' && (
+                    <TouchableOpacity
+                      style={styles.actionBtnBase}
+                      onPress={() => handleUpdateStatus('DANG_GIAO_HANG')}
+                      disabled={updatingStatus}
+                    >
+                      <LinearGradient
+                        colors={['#3B82F6', '#2563EB']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        style={styles.actionBtnInner}
+                      >
+                        <Text style={styles.actionBtnText}>{isDelivery ? 'GIAO CHO SHIPPER' : 'GIAO KHÁCH HÀNG'}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
+
                   {currentStatus !== 'HOAN_TAT' && currentStatus !== 'DA_HUY' && (
                     <TouchableOpacity
-                      style={[styles.actionBtnBase, { flex: 1 }]}
+                      style={styles.actionBtnBase}
                       onPress={handleCancelOrder}
                       disabled={updatingStatus}
                     >
@@ -883,19 +1010,34 @@ const OrderDetails = ({ onNavigate, params }) => {
                     </TouchableOpacity>
                   )}
 
-                  <TouchableOpacity
-                    style={[styles.actionBtnBase, { flex: 1 }, (currentStatus === 'HOAN_TAT' || currentStatus === 'DA_HUY') && { opacity: 0.5 }]}
-                    onPress={handleOpenPayment}
-                    disabled={currentStatus === 'HOAN_TAT' || currentStatus === 'DA_HUY'}
-                  >
-                    <LinearGradient
-                      colors={['#A2CB6B', '#4D7521']}
-                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                      style={styles.actionBtnInner}
+                  {isDelivery ? (
+                    <TouchableOpacity
+                      style={[styles.actionBtnBase, { opacity: 0.7 }]}
+                      disabled={true}
                     >
-                      <Text style={styles.actionBtnText}>XÁC NHẬN THANH TOÁN</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                      <LinearGradient
+                        colors={['#A2CB6B', '#4D7521']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        style={styles.actionBtnInner}
+                      >
+                        <Text style={styles.actionBtnText}>ĐÃ THANH TOÁN (ONL)</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.actionBtnBase, (currentStatus === 'HOAN_TAT' || currentStatus === 'DA_HUY') && { opacity: 0.5 }]}
+                      onPress={handleOpenPayment}
+                      disabled={currentStatus === 'HOAN_TAT' || currentStatus === 'DA_HUY'}
+                    >
+                      <LinearGradient
+                        colors={['#A2CB6B', '#4D7521']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        style={styles.actionBtnInner}
+                      >
+                        <Text style={styles.actionBtnText}>XÁC NHẬN THANH TOÁN</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             </View>
@@ -1377,8 +1519,8 @@ const OrderDetails = ({ onNavigate, params }) => {
                     <View style={styles.statusLabelContainer}>
                       <Text style={styles.statusLabelMain}>{f.tenThuePhi}</Text>
                       <Text style={styles.statusLabelSub}>
-                        {f.loaiGiaTri === 'PHAN_TRAM' 
-                          ? `Áp dụng ${f.giaTri}% trên tổng bill` 
+                        {f.loaiGiaTri === 'PHAN_TRAM'
+                          ? `Áp dụng ${f.giaTri}% trên tổng bill`
                           : `Phụ thu ${formatPrice(f.giaTri)}`}
                       </Text>
                     </View>
@@ -1405,133 +1547,140 @@ const OrderDetails = ({ onNavigate, params }) => {
 
                 <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
 
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Bàn:</Text>
-                <Text style={styles.receiptValue}>{params?.tableName || 'Mang về'}</Text>
-              </View>
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Ngày:</Text>
-                <Text style={styles.receiptValue}>
-                  {(() => {
-                    // Ưu tiên ngày giờ hiện tại nếu đơn chưa thanh toán xong
-                    const isSettled = currentStatus === 'DA_THANH_TOAN' || currentStatus === 'HOAN_TAT';
-                    const date = isSettled
-                      ? (invoice?.thoiGianThanhToan || invoice?.thoiGianTao || new Date())
-                      : new Date();
-
-                    return new Date(date).toLocaleString('vi-VN', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
-                  })()}
-                </Text>
-              </View>
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Thu ngân:</Text>
-                <Text style={styles.receiptValue}>{currentUser?.hoTen || 'Thu ngân'}</Text>
-              </View>
-
-              {invoice?.tenPhucVu && (
-                <View style={[styles.receiptRow, { marginTop: 4 }]}>
-                  <Text style={styles.receiptLabel}>Phục vụ:</Text>
-                  <Text style={styles.receiptValue}>{invoice.tenPhucVu}</Text>
-                </View>
-              )}
-
-              {foundMember && (
-                <View style={[styles.receiptRow, { marginTop: 4 }]}>
-                  <Text style={styles.receiptLabel}>Khách hàng:</Text>
-                  <Text style={styles.receiptValue}>{foundMember.hoTen}</Text>
-                </View>
-              )}
-
-              <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
-
-              {(previewInvoice?.danhSachChiTiet || invoice?.danhSachChiTiet || []).map((item, idx) => {
-                let details = item.tenKichCo || '';
-                try {
-                  if (item.tuyChonJson) {
-                    const opts = JSON.parse(item.tuyChonJson);
-                    if (opts.da) details += ` • Đá: ${opts.da}`;
-                    if (opts.duong) details += ` • Đường: ${opts.duong}`;
-                  }
-                } catch (e) { }
-
-                const toppingNames = (item.danhSachTopping || []).map(t => t.tenTopping).join(', ');
-
-                return (
-                  <View key={idx} style={{ marginBottom: 6 }}>
-                    <View style={styles.receiptRow}>
-                      <Text style={styles.receiptItemName}>{item.tenSanPham}</Text>
-                      <Text style={styles.receiptItemQty}>x{item.soLuong}</Text>
-                      <Text style={styles.receiptItemPrice}>{formatPrice(item.thanhTien)}</Text>
-                    </View>
-                    <Text style={{ fontSize: 11, color: '#64748B' }}>{details}</Text>
-                    {toppingNames.length > 0 && (
-                      <Text style={{ fontSize: 11, color: '#64748B' }}>+ Topping: {toppingNames}</Text>
-                    )}
-                  </View>
-                );
-              })}
-
-              <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
-
-              {/* Chi tiết thanh toán */}
-              <View style={{ gap: 4 }}>
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptItemName}>Tiền hàng</Text>
-                  <Text style={styles.receiptItemPrice}>{formatPrice(previewInvoice?.tongTienHang || subtotal)}</Text>
+                  <Text style={styles.receiptLabel}>Bàn:</Text>
+                  <Text style={styles.receiptValue}>{params?.tableName || 'Mang về'}</Text>
+                </View>
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Ngày:</Text>
+                  <Text style={styles.receiptValue}>
+                    {(() => {
+                      // Ưu tiên ngày giờ hiện tại nếu đơn chưa thanh toán xong
+                      const isSettled = currentStatus === 'DA_THANH_TOAN' || currentStatus === 'HOAN_TAT';
+                      const date = isSettled
+                        ? (invoice?.thoiGianThanhToan || invoice?.thoiGianTao || new Date())
+                        : new Date();
+
+                      return new Date(date).toLocaleString('vi-VN', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                    })()}
+                  </Text>
+                </View>
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Thu ngân:</Text>
+                  <Text style={styles.receiptValue}>{currentUser?.hoTen || 'Thu ngân'}</Text>
                 </View>
 
-                {pointsDiscount > 0 && (
-                  <View style={styles.receiptRow}>
-                    <Text style={styles.receiptItemName}>Cấn trừ điểm</Text>
-                    <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(pointsDiscount)}</Text>
+                {invoice?.tenPhucVu && (
+                  <View style={[styles.receiptRow, { marginTop: 4 }]}>
+                    <Text style={styles.receiptLabel}>Phục vụ:</Text>
+                    <Text style={styles.receiptValue}>{invoice.tenPhucVu}</Text>
                   </View>
                 )}
 
-                {(previewInvoice?.giamGiaKhuyenMai > 0 || voucherDiscount > 0) && (
-                  <View style={styles.receiptRow}>
-                    <Text style={styles.receiptItemName}>Khuyến mãi {previewInvoice?.maKhuyenMai ? `(${previewInvoice.maKhuyenMai})` : ''}</Text>
-                    <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(previewInvoice?.giamGiaKhuyenMai || voucherDiscount)}</Text>
+                {foundMember && (
+                  <View style={[styles.receiptRow, { marginTop: 4 }]}>
+                    <Text style={styles.receiptLabel}>Khách hàng:</Text>
+                    <Text style={styles.receiptValue}>{foundMember.hoTen}</Text>
                   </View>
                 )}
 
-                {previewInvoice?.danhSachThuePhi?.map((t, i) => (
-                  <View key={i} style={styles.receiptRow}>
-                    <Text style={styles.receiptItemName}>{t.tenThuePhi}{t.loaiGiaTri === 'PHAN_TRAM' ? ` (${t.giaTriTaiThoiDiemBan}%)` : ''}</Text>
-                    <Text style={styles.receiptItemPrice}>+{formatPrice(t.soTienQuyDoi)}</Text>
+                <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+                {(previewInvoice?.danhSachChiTiet || invoice?.danhSachChiTiet || []).map((item, idx) => {
+                  let details = item.tenKichCo || '';
+                  try {
+                    if (item.tuyChonJson) {
+                      const opts = JSON.parse(item.tuyChonJson);
+                      if (opts.da) details += ` • Đá: ${opts.da}`;
+                      if (opts.duong) details += ` • Đường: ${opts.duong}`;
+                    }
+                  } catch (e) { }
+
+                  const toppingNames = (item.danhSachTopping || []).map(t => t.tenTopping).join(', ');
+
+                  return (
+                    <View key={idx} style={{ marginBottom: 6 }}>
+                      <View style={styles.receiptRow}>
+                        <Text style={styles.receiptItemName}>{item.tenSanPham}</Text>
+                        <Text style={styles.receiptItemQty}>x{item.soLuong}</Text>
+                        <Text style={styles.receiptItemPrice}>{formatPrice(item.thanhTien)}</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: '#64748B' }}>{details}</Text>
+                      {toppingNames.length > 0 && (
+                        <Text style={{ fontSize: 11, color: '#64748B' }}>+ Topping: {toppingNames}</Text>
+                      )}
+                    </View>
+                  );
+                })}
+
+                <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+                {/* Chi tiết thanh toán */}
+                <View style={{ gap: 4 }}>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptItemName}>Tiền hàng</Text>
+                    <Text style={styles.receiptItemPrice}>{formatPrice(isDelivery ? invoice?.tongTienHang : (previewInvoice?.tongTienHang || subtotal))}</Text>
                   </View>
-                ))}
-              </View>
 
-              <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+                  {pointsDiscount > 0 && !isDelivery && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>Cấn trừ điểm</Text>
+                      <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(pointsDiscount)}</Text>
+                    </View>
+                  )}
 
-              <View style={styles.receiptTotalRow}>
-                <Text style={styles.receiptTotalLabel}>TỔNG CỘNG</Text>
-                <Text style={styles.receiptTotalValue}>{formatPrice(previewInvoice?.tongThanhToan || total)}</Text>
-              </View>
+                  {(isDelivery ? invoice?.giamGiaKhuyenMai > 0 : (previewInvoice?.giamGiaKhuyenMai > 0 || voucherDiscount > 0)) && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>Khuyến mãi {previewInvoice?.maKhuyenMai ? `(${previewInvoice.maKhuyenMai})` : ''}</Text>
+                      <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(isDelivery ? invoice?.giamGiaKhuyenMai : (previewInvoice?.giamGiaKhuyenMai || voucherDiscount))}</Text>
+                    </View>
+                  )}
 
-              <View style={styles.receiptQR}>
-                <Image
-                  source={vietQRData?.qrImageUrl ? { uri: vietQRData.qrImageUrl } : require('../../assets/images/qr_pay.png')}
-                  style={styles.receiptQRImg}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', marginTop: 8, color: '#1E293B' }}>
-                {vietQRData?.nộiDungChuyenKhoan ? `Nội dung CK: ${vietQRData.nộiDungChuyenKhoan}` : 'STK: 0123456789 - MB Bank'}
-              </Text>
-              <Text style={{ textAlign: 'center', fontSize: 10, color: '#64748B', marginTop: 2 }}>
-                CTK: MATCHTEA COFFEE
-              </Text>
+                  {(isDelivery ? invoice?.giamGiaThanhVien > 0 : memberDiscount > 0) && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>Giảm giá TV</Text>
+                      <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(isDelivery ? invoice?.giamGiaThanhVien : memberDiscount)}</Text>
+                    </View>
+                  )}
 
-              <Text style={{ textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 20, fontStyle: 'italic' }}>
-                Cảm ơn quý khách. Hẹn gặp lại!
-              </Text>
+                  {(isDelivery ? invoice?.danhSachThuePhi : previewInvoice?.danhSachThuePhi)?.map((t, i) => (
+                    <View key={i} style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>{t.tenThuePhi}{t.loaiGiaTri === 'PHAN_TRAM' ? ` (${t.giaTriTaiThoiDiemBan}%)` : ''}</Text>
+                      <Text style={styles.receiptItemPrice}>+{formatPrice(t.soTienQuyDoi)}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+                <View style={styles.receiptTotalRow}>
+                  <Text style={styles.receiptTotalLabel}>TỔNG CỘNG</Text>
+                  <Text style={styles.receiptTotalValue}>{formatPrice(isDelivery ? invoice?.tongThanhToan : (previewInvoice?.tongThanhToan || total))}</Text>
+                </View>
+
+                <View style={styles.receiptQR}>
+                  <Image
+                    source={vietQRData?.qrImageUrl ? { uri: vietQRData.qrImageUrl } : require('../../assets/images/qr_pay.png')}
+                    style={styles.receiptQRImg}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', marginTop: 8, color: '#1E293B' }}>
+                  {vietQRData?.nộiDungChuyenKhoan ? `Nội dung CK: ${vietQRData.nộiDungChuyenKhoan}` : 'STK: 0123456789 - MB Bank'}
+                </Text>
+                <Text style={{ textAlign: 'center', fontSize: 10, color: '#64748B', marginTop: 2 }}>
+                  CTK: MATCHTEA COFFEE
+                </Text>
+
+                <Text style={{ textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 20, fontStyle: 'italic' }}>
+                  Cảm ơn quý khách. Hẹn gặp lại!
+                </Text>
               </View>
             </ScrollView>
 
@@ -1559,12 +1708,12 @@ const OrderDetails = ({ onNavigate, params }) => {
           <View style={[styles.modalContent, { width: 400, alignItems: 'center', paddingVertical: 40 }]}>
             <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
               <Svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-                <Path d="M12 9V11M12 15H12.01M5.07183 19H18.9282C20.4678 19 21.4301 17.3333 20.6603 16L13.7321 4C12.9623 2.66667 11.0377 2.66667 10.2679 4L3.33975 16C2.56995 17.3333 3.5322 19 5.07183 19Z" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <Path d="M12 9V11M12 15H12.01M5.07183 19H18.9282C20.4678 19 21.4301 17.3333 20.6603 16L13.7321 4C12.9623 2.66667 11.0377 2.66667 10.2679 4L3.33975 16C2.56995 17.3333 3.5322 19 5.07183 19Z" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
             <Text style={[styles.modalTitle, { textAlign: 'center', fontSize: 24, color: '#1E293B', marginBottom: 12 }]}>Xác nhận hủy đơn</Text>
             <Text style={[styles.modalSubtitle, { textAlign: 'center', fontSize: 16, marginBottom: 36, lineHeight: 24, paddingHorizontal: 20 }]}>Bạn có chắc chắn muốn hủy đơn hàng này không? Hành động này không thể hoàn tác.</Text>
-            
+
             <View style={{ flexDirection: 'row', gap: 16, width: '100%' }}>
               <TouchableOpacity
                 style={{ flex: 1, height: 56, borderRadius: 20, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' }}
@@ -1572,7 +1721,7 @@ const OrderDetails = ({ onNavigate, params }) => {
               >
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#64748B' }}>Đóng lại</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={{ flex: 1, height: 56, borderRadius: 20, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 8 }}
                 onPress={confirmCancelOrder}

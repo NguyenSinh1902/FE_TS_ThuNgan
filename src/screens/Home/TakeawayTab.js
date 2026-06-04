@@ -40,6 +40,8 @@ const getStatusConfig = (status) => {
       return { borderTop: '#3B82F6', badgeBg: '#EFF6FF', badgeColor: '#3B82F6',   dot: '#3B82F6', label: 'Đang pha chế',   gradient: ['#FFFFFF', '#EFF6FF'] };
     case 'CHO_LAY_MON':
       return { borderTop: '#0D9488', badgeBg: '#F0FDFA', badgeColor: '#0D9488',   dot: '#0D9488', label: 'Chờ lấy món',    gradient: ['#FFFFFF', '#F0FDFA'] };
+    case 'DANG_GIAO_HANG':
+      return { borderTop: '#8B5CF6', badgeBg: '#F5F3FF', badgeColor: '#8B5CF6',   dot: '#8B5CF6', label: 'Đang giao hàng', gradient: ['#FFFFFF', '#F5F3FF'] };
     case 'CHO_THANH_TOAN':
       return { borderTop: '#F59E0B', badgeBg: '#FFF7ED', badgeColor: '#EA580C',   dot: '#EA580C', label: 'Chờ thanh toán', gradient: ['#FFFFFF', '#FFF7ED'] };
     case 'DA_THANH_TOAN':
@@ -149,10 +151,16 @@ const TakeawayTab = ({ onNavigate }) => {
 
   const fetchData = async (isRefresh = false) => {
     try {
-      const res = await invoiceApi.getInvoicesByType('MANG_VE');
-      if (Array.isArray(res)) {
-        setData(res.filter(item => item.trangThai !== 'HOAN_TAT'));
-      }
+      const [resMangVe, resGiaoHang] = await Promise.all([
+        invoiceApi.getInvoicesByType('MANG_VE'),
+        invoiceApi.getInvoicesByType('GIAO_HANG')
+      ]);
+      
+      let allTakeaway = [];
+      if (Array.isArray(resMangVe)) allTakeaway = [...allTakeaway, ...resMangVe];
+      if (Array.isArray(resGiaoHang)) allTakeaway = [...allTakeaway, ...resGiaoHang];
+      
+      setData(allTakeaway.filter(item => item.trangThai !== 'HOAN_TAT'));
     } catch (error) {
       console.error('Fetch takeaway failed:', error);
     } finally {
