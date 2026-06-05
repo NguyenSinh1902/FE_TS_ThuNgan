@@ -1,25 +1,157 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, Modal, TouchableOpacity, ScrollView, 
-  ActivityIndicator, useWindowDimensions, StyleSheet, Image
+  ActivityIndicator, useWindowDimensions, StyleSheet, Image, Alert, TextInput
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import invoiceApi from '../../../api/invoiceApi';
+import refundApi from '../../../api/refundApi';
+import { listenToFirebase } from '../../../utils/firebaseListener';
+import CustomAlert from '../../../components/CustomAlert';
+import { captureRef } from 'react-native-view-shot';
+import Share from 'react-native-share';
 
 const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [invoice, setInvoice] = useState(null);
   const [vietQRData, setVietQRData] = useState(null);
   const [fetchError, setFetchError] = useState(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [activeRefund, setActiveRefund] = useState(null);
+  const [submittingRefund, setSubmittingRefund] = useState(false);
+  const refundListenerRef = useRef(null);
+
+  const [customAlert, setCustomAlert] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    buttons: []
+  });
+
+  const showCustomAlert = (title, message, type = 'info', buttons = null) => {
+    setCustomAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      buttons: buttons || [{ text: 'OK', onPress: () => setCustomAlert(prev => ({ ...prev, visible: false })) }]
+    });
+  };
+
   const { width } = useWindowDimensions();
   const isTablet = width >= 700;
+  const receiptRef = useRef();
+
+  useEffect(() => {
+    return () => {
+      if (refundListenerRef.current) refundListenerRef.current.stop();
+    };
+  }, []);
+
+  const startRefundListener = (idPhieu) => {
+    if (refundListenerRef.current) refundListenerRef.current.stop();
+    refundListenerRef.current = listenToFirebase(`refund_orders/${idPhieu}`, (data) => {
+      if (data && data.trangThai) {
+        setActiveRefund(prev => prev ? { ...prev, trangThai: data.trangThai } : data);
+        if (data.trangThai === 'DA_DUYET') {
+          showCustomAlert('Hoàn tiền đã duyệt!', 'Admin đã duyệt hoàn tiền, vui lòng trả tiền cho khách!', 'success');
+        } else if (data.trangThai === 'TU_CHOI') {
+          showCustomAlert('Từ chối', 'Admin đã từ chối yêu cầu hoàn tiền này.', 'error');
+          if (refundListenerRef.current) refundListenerRef.current.stop();
+        }
+      }
+    });
+  };
+
+  const handleOpenRefundModal = () => {
+    setRefundReason('');
+    setRefundAmount(invoice?.tongThanhToan?.toString() || '');
+    setShowRefundModal(true);
+  };
+
+  const handleSubmitRefund = async () => {
+    if (!refundReason.trim()) {
+      showCustomAlert('Lỗi', 'Vui lòng nhập lý do hoàn tiền.', 'warning');
+      return;
+    }
+    const amount = Number(refundAmount);
+    if (!amount || amount <= 0) {
+      showCustomAlert('Lỗi', 'Số tiền hoàn không hợp lệ.', 'warning');
+      return;
+    }
+    
+    try {
+      setSubmittingRefund(true);
+      const res = await refundApi.createRefundRequest({
+        idHoaDon: invoiceId,
+        soTienHoan: amount,
+        lyDo: refundReason
+      });
+      setActiveRefund(res);
+      setShowRefundModal(false);
+      startRefundListener(res.idPhieuHoanTra || res.idPhieu);
+      showCustomAlert('Thành công', 'Đã gửi yêu cầu hoàn tiền, vui lòng chờ Admin duyệt.', 'success');
+    } catch (err) {
+      console.error('Submit refund error', err);
+      showCustomAlert('Lỗi', 'Không thể tạo yêu cầu hoàn tiền. Vui lòng thử lại sau.', 'error');
+    } finally {
+      setSubmittingRefund(false);
+    }
+  };
+
+  const handleCompleteRefund = async () => {
+    try {
+      await refundApi.completeRefund(activeRefund.idPhieuHoanTra || activeRefund.idPhieu);
+      setActiveRefund(prev => ({ ...prev, trangThai: 'HOAN_THANH' }));
+      showCustomAlert('Thành công', 'Đã hoàn tất quy trình hoàn tiền.', 'success');
+      setInvoice(prev => ({...prev, trangThai: 'HOAN_TIEN'}));
+      if (refundListenerRef.current) refundListenerRef.current.stop();
+    } catch (err) {
+      console.error('Complete refund error', err);
+      showCustomAlert('Lỗi', 'Không thể hoàn thành phiếu hoàn tiền', 'error');
+    }
+  };
+
+  const handleReprintInvoice = async () => {
+    let uri;
+    try {
+      uri = await captureRef(receiptRef, {
+        format: 'png',
+        quality: 1.0,
+      });
+    } catch (err) {
+      console.log('Capture error', err);
+      Alert.alert('Lỗi', 'Không thể tạo file ảnh hóa đơn');
+      return;
+    }
+
+    try {
+      await Share.open({
+        url: uri,
+        title: `Hóa đơn ${invoiceId}`,
+        message: 'Hóa đơn mua hàng tại MatchTea Coffee',
+      });
+      setShowReceiptModal(false);
+    } catch (err) {
+      console.log('Share error or user cancelled', err);
+      setShowReceiptModal(false);
+    }
+  };
 
   useEffect(() => {
     if (isVisible && invoiceId) {
       setInvoice(null);
       setVietQRData(null);
       setFetchError(null);
+      setActiveRefund(null);
+      if (refundListenerRef.current) refundListenerRef.current.stop();
       fetchInvoiceDetail();
+    } else if (!isVisible) {
+      if (refundListenerRef.current) refundListenerRef.current.stop();
     }
   }, [isVisible, invoiceId]);
 
@@ -35,6 +167,23 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
           setVietQRData(qrRes);
         } catch (err) {
           console.error('Error fetching VietQR:', err);
+        }
+
+        try {
+          const refundsRes = await refundApi.getAll();
+          if (Array.isArray(refundsRes)) {
+            const targetId = response.idHoaDon || invoiceId;
+            const active = refundsRes.find(r => 
+              (r.idHoaDon === targetId || r.hoaDon?.idHoaDon === targetId) && 
+              r.trangThai !== 'HOAN_THANH' && r.trangThai !== 'TU_CHOI'
+            );
+            if (active) {
+               setActiveRefund(active);
+               startRefundListener(active.idPhieuHoanTra || active.idPhieu);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching refunds:', err);
         }
       }
     } catch (error) {
@@ -176,6 +325,29 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
                       <View style={styles.timeRow}><Text style={styles.timeLabel}>Thời gian thanh toán:</Text><Text style={styles.timeValue}>{formatTime(invoice.thoiGianThanhToan)}</Text></View>
                     )}
                   </View>
+
+                  {/* Refund Actions */}
+                  {(invoice.trangThai === 'DA_THANH_TOAN' || invoice.trangThai === 'HOAN_TAT') && (
+                    <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 20 }}>
+                      {!activeRefund ? (
+                        <TouchableOpacity style={[styles.payBtnPopup, { backgroundColor: '#F59E0B' }]} onPress={handleOpenRefundModal}>
+                          <Text style={styles.payBtnTextPopup}>↩ Yêu cầu hoàn tiền</Text>
+                        </TouchableOpacity>
+                      ) : activeRefund.trangThai === 'CHO_DUYET' ? (
+                        <View style={{ backgroundColor: '#FEF3C6', padding: 16, borderRadius: 12, alignItems: 'center' }}>
+                          <ActivityIndicator color="#E17100" />
+                          <Text style={{ color: '#E17100', fontWeight: '700', marginTop: 8 }}>Đang chờ Admin duyệt hoàn tiền...</Text>
+                        </View>
+                      ) : activeRefund.trangThai === 'DA_DUYET' ? (
+                        <View style={{ backgroundColor: '#E0F2FE', padding: 16, borderRadius: 12, alignItems: 'center' }}>
+                          <Text style={{ color: '#0284C7', fontWeight: '700', marginBottom: 12 }}>Admin đã duyệt! Vui lòng trả tiền cho khách.</Text>
+                          <TouchableOpacity style={[styles.payBtnPopup, { backgroundColor: '#0284C7', width: '100%' }]} onPress={handleCompleteRefund}>
+                            <Text style={styles.payBtnTextPopup}>Xác nhận đã trả tiền & Đóng phiếu</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
                </ScrollView>
 
                {/* Right Column - Receipt Preview */}
@@ -242,14 +414,238 @@ const InvoiceHistoryModal = ({ isVisible, invoiceId, onClose }) => {
                     </ScrollView>
                   </View>
 
-                  <TouchableOpacity style={[styles.printBtn, { backgroundColor: '#1E293B', shadowColor: '#1E293B' }]} onPress={onClose}>
-                    <Text style={styles.printBtnText}>✓ Xong</Text>
-                  </TouchableOpacity>
+                  <View style={{flexDirection: 'row', gap: 12}}>
+                    <TouchableOpacity style={[styles.printBtn, { flex: 1, backgroundColor: '#F1F5F9', shadowOpacity: 0, borderWidth: 1, borderColor: '#E2E8F0' }]} onPress={onClose}>
+                      <Text style={[styles.printBtnText, { color: '#64748B' }]}>Đóng</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={[styles.printBtn, { flex: 2 }]} onPress={() => setShowReceiptModal(true)}>
+                      <Text style={styles.printBtnText}>🖨️ Xuất lại hóa đơn</Text>
+                    </TouchableOpacity>
+                  </View>
                </View>
             </View>
           ) : null}
         </View>
       </View>
+
+      {/* 📄 PHYSICAL RECEIPT MODAL */}
+      <Modal visible={showReceiptModal} transparent animationType="slide" statusBarTranslucent>
+        <View style={styles.receiptModalOverlay}>
+          <View style={styles.receiptPaperPopup}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 600 }}>
+              <View ref={receiptRef} collapsable={false} style={{ backgroundColor: '#FFF', padding: 10 }}>
+                <Text style={styles.receiptBrand}>MATCHTEA COFFEE</Text>
+                <Text style={styles.receiptSubBrand}>Đ/C: 888 Đường Lê Trọng Tấn, Q. Tân Phú, TP.HCM</Text>
+
+                <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Bàn:</Text>
+                  <Text style={styles.receiptValue}>{invoice?.danhSachTenBan?.join(', ') || (invoice?.loaiDonHang === 'MANG_VE' ? 'Mang về' : 'Giao hàng')}</Text>
+                </View>
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Ngày:</Text>
+                  <Text style={styles.receiptValue}>
+                    {new Date(invoice?.thoiGianThanhToan || invoice?.thoiGianTao || new Date()).toLocaleString('vi-VN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Thu ngân:</Text>
+                  <Text style={styles.receiptValue}>{invoice?.tenThuNgan || '---'}</Text>
+                </View>
+
+                {invoice?.tenPhucVu && (
+                  <View style={[styles.receiptRow, { marginTop: 4 }]}>
+                    <Text style={styles.receiptLabel}>Phục vụ:</Text>
+                    <Text style={styles.receiptValue}>{invoice.tenPhucVu}</Text>
+                  </View>
+                )}
+
+                {invoice?.tenKhachHang && (
+                  <View style={[styles.receiptRow, { marginTop: 4 }]}>
+                    <Text style={styles.receiptLabel}>Khách hàng:</Text>
+                    <Text style={styles.receiptValue}>{invoice.tenKhachHang}</Text>
+                  </View>
+                )}
+
+                <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+                {(invoice?.danhSachChiTiet || []).map((item, idx) => {
+                  let details = item.tenKichCo || '';
+                  try {
+                    if (item.tuyChonJson) {
+                      const opts = JSON.parse(item.tuyChonJson);
+                      if (opts.da) details += ` • Đá: ${opts.da}`;
+                      if (opts.duong) details += ` • Đường: ${opts.duong}`;
+                    }
+                  } catch (e) { }
+
+                  const toppingNames = (item.danhSachTopping || []).map(t => `${t.tenSanPham || t.tenTopping}${t.soLuong > 1 ? ` (x${t.soLuong})` : ''}`).join(', ');
+
+                  return (
+                    <View key={idx} style={{ marginBottom: 6 }}>
+                      <View style={styles.receiptRow}>
+                        <Text style={styles.receiptItemName}>{item.tenSanPham}</Text>
+                        <Text style={styles.receiptItemQty}>x{item.soLuong}</Text>
+                        <Text style={styles.receiptItemPrice}>{formatPrice(item.thanhTien)}</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: '#64748B' }}>{details}</Text>
+                      {toppingNames.length > 0 && (
+                        <Text style={{ fontSize: 11, color: '#64748B' }}>+ Topping: {toppingNames}</Text>
+                      )}
+                    </View>
+                  );
+                })}
+
+                <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+                {/* Chi tiết thanh toán */}
+                <View style={{ gap: 4 }}>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptItemName}>Tiền hàng</Text>
+                    <Text style={styles.receiptItemPrice}>{formatPrice(invoice?.tongTienHang)}</Text>
+                  </View>
+
+                  {invoice?.diemSuDung > 0 && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>Cấn trừ điểm</Text>
+                      <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(invoice.diemSuDung * 1000)}</Text>
+                    </View>
+                  )}
+
+                  {invoice?.giamGiaKhuyenMai > 0 && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>Khuyến mãi {invoice?.maKhuyenMai ? `(${invoice.maKhuyenMai})` : ''}</Text>
+                      <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(invoice.giamGiaKhuyenMai)}</Text>
+                    </View>
+                  )}
+
+                  {invoice?.giamGiaThanhVien > 0 && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>Giảm giá TV</Text>
+                      <Text style={[styles.receiptItemPrice, { color: '#8BA367' }]}>-{formatPrice(invoice.giamGiaThanhVien)}</Text>
+                    </View>
+                  )}
+
+                  {invoice?.danhSachThuePhi?.map((t, i) => (
+                    <View key={i} style={styles.receiptRow}>
+                      <Text style={styles.receiptItemName}>{t.tenThuePhi}</Text>
+                      <Text style={styles.receiptItemPrice}>+{formatPrice(t.soTienQuyDoi)}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={[styles.iptDashDivider, { marginVertical: 10 }]} />
+
+                <View style={styles.receiptTotalRow}>
+                  <Text style={styles.receiptTotalLabel}>TỔNG CỘNG</Text>
+                  <Text style={styles.receiptTotalValue}>{formatPrice(invoice?.tongThanhToan)}</Text>
+                </View>
+
+                {invoice?.trangThai !== 'DA_HUY' && (
+                  <>
+                    <View style={styles.receiptQRPopup}>
+                      <Image
+                        source={vietQRData?.qrImageUrl ? { uri: vietQRData.qrImageUrl } : require('../../../assets/images/qr_pay.png')}
+                        style={styles.receiptQRImg}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <Text style={{ textAlign: 'center', fontSize: 12, fontWeight: '700', marginTop: 8, color: '#1E293B' }}>
+                      {vietQRData?.nộiDungChuyenKhoan ? `Nội dung CK: ${vietQRData.nộiDungChuyenKhoan}` : 'STK: 0123456789 - MB Bank'}
+                    </Text>
+                    <Text style={{ textAlign: 'center', fontSize: 10, color: '#64748B', marginTop: 2 }}>
+                      CTK: MATCHTEA COFFEE
+                    </Text>
+                  </>
+                )}
+
+                <Text style={{ textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 20, fontStyle: 'italic' }}>
+                  Cảm ơn quý khách. Hẹn gặp lại!
+                </Text>
+              </View>
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <TouchableOpacity
+                style={[styles.payBtnPopup, { flex: 1, backgroundColor: '#4A924C' }]}
+                onPress={handleReprintInvoice}
+              >
+                <Text style={styles.payBtnTextPopup}>LƯU & CHIA SẺ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payBtnPopup, { flex: 1, backgroundColor: '#1E293B' }]}
+                onPress={() => setShowReceiptModal(false)}
+              >
+                <Text style={styles.payBtnTextPopup}>ĐÓNG</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🧾 REFUND MODAL */}
+      <Modal visible={showRefundModal} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.receiptModalOverlay}>
+          <View style={[styles.receiptPaperPopup, { width: 450 }]}>
+            <Text style={[styles.sectionTitle, { textAlign: 'center', marginBottom: 16 }]}>Yêu cầu hoàn tiền</Text>
+            
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.receiptLabel}>Số tiền cần hoàn:</Text>
+              <TextInput 
+                style={{ borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 12, fontSize: 16, marginTop: 8, color: '#1E293B', fontWeight: '700' }}
+                value={refundAmount}
+                onChangeText={setRefundAmount}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={{ marginBottom: 24 }}>
+              <Text style={styles.receiptLabel}>Lý do hoàn trả:</Text>
+              <TextInput 
+                style={{ borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 12, fontSize: 16, marginTop: 8, minHeight: 80, textAlignVertical: 'top', color: '#1E293B' }}
+                value={refundReason}
+                onChangeText={setRefundReason}
+                placeholder="Ví dụ: Nước chua, nhầm size..."
+                multiline
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity 
+                style={[styles.payBtnPopup, { flex: 1, backgroundColor: '#EF4444' }]} 
+                onPress={handleSubmitRefund}
+                disabled={submittingRefund}
+              >
+                {submittingRefund ? <ActivityIndicator color="#FFF" /> : <Text style={styles.payBtnTextPopup}>Gửi yêu cầu</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.payBtnPopup, { flex: 1, backgroundColor: '#F1F5F9' }]} 
+                onPress={() => setShowRefundModal(false)}
+                disabled={submittingRefund}
+              >
+                <Text style={[styles.payBtnTextPopup, { color: '#64748B' }]}>Hủy</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        type={customAlert.type}
+        buttons={customAlert.buttons}
+        onClose={() => setCustomAlert(prev => ({ ...prev, visible: false }))}
+      />
     </Modal>
   );
 };
@@ -495,6 +891,97 @@ const styles = StyleSheet.create({
   printBtnText: {
     fontSize: 16,
     fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  receiptModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  receiptPaperPopup: {
+    width: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+    maxHeight: '90%',
+  },
+  iptDashDivider: {
+    height: 1,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    marginVertical: 10,
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  receiptLabel: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  receiptValue: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '700',
+  },
+  receiptItemName: {
+    fontSize: 13,
+    color: '#1E293B',
+    flex: 2,
+  },
+  receiptItemQty: {
+    fontSize: 13,
+    color: '#64748B',
+    flex: 0.5,
+    textAlign: 'center',
+  },
+  receiptItemPrice: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'right',
+  },
+  receiptTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  receiptTotalLabel: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1E293B',
+  },
+  receiptTotalValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1E293B',
+  },
+  receiptQRPopup: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  receiptQRImg: {
+    width: 120,
+    height: 120,
+  },
+  payBtnPopup: {
+    height: 52,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  payBtnTextPopup: {
+    fontSize: 14,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
 });

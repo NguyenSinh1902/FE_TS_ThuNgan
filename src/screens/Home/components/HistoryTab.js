@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, Text, FlatList, TextInput, TouchableOpacity, 
+import {
+  View, Text, FlatList, TextInput, TouchableOpacity,
   ActivityIndicator, StyleSheet, RefreshControl, Modal, Pressable
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import DatePicker from 'react-native-date-picker';
 import { Bell } from 'lucide-react-native';
 import invoiceApi from '../../../api/invoiceApi';
+import refundApi from '../../../api/refundApi';
 import InvoiceHistoryModal from './InvoiceHistoryModal';
 
 const HistoryTab = ({ onShowNoti }) => {
@@ -43,10 +44,48 @@ const HistoryTab = ({ onShowNoti }) => {
       }
 
       if (response && Array.isArray(response)) {
-        const sorted = response.sort((a, b) => new Date(b.thoiGianTao) - new Date(a.thoiGianTao));
+        let refunds = [];
+        try {
+          refunds = await refundApi.getAll();
+        } catch (e) {
+          console.error('Error fetching refunds for history', e);
+        }
+
+        const enrichedInvoices = response.map(inv => {
+          if (Array.isArray(refunds)) {
+            const activeRefund = refunds.find(r =>
+              (r.idHoaDon === inv.idHoaDon || r.hoaDon?.idHoaDon === inv.idHoaDon) &&
+              r.trangThai !== 'HOAN_THANH' && r.trangThai !== 'TU_CHOI'
+            );
+            if (activeRefund) {
+              return { ...inv, activeRefundStatus: activeRefund.trangThai };
+            }
+          }
+          return inv;
+        });
+
+        const sorted = enrichedInvoices.sort((a, b) => new Date(b.thoiGianTao) - new Date(a.thoiGianTao));
         setInvoices(sorted);
       } else if (response && response.data) {
-        const sorted = response.data.sort((a, b) => new Date(b.thoiGianTao) - new Date(a.thoiGianTao));
+        let refunds = [];
+        try {
+          refunds = await refundApi.getAll();
+        } catch (e) { }
+
+        const enrichedInvoices = response.data.map(inv => {
+          if (Array.isArray(refunds)) {
+            const activeRefund = refunds.find(r =>
+              (r.idHoaDon === inv.idHoaDon || r.hoaDon?.idHoaDon === inv.idHoaDon) &&
+              r.trangThai !== 'HOAN_THANH' && r.trangThai !== 'TU_CHOI'
+            );
+            if (activeRefund) {
+              return { ...inv, activeRefundStatus: activeRefund.trangThai };
+            }
+          }
+          return inv;
+        });
+
+        const sorted = enrichedInvoices.sort((a, b) => new Date(b.thoiGianTao) - new Date(a.thoiGianTao));
         setInvoices(sorted);
       } else {
         setInvoices([]);
@@ -69,7 +108,14 @@ const HistoryTab = ({ onShowNoti }) => {
     fetchInvoices();
   };
 
-  const getStatusStyle = (status) => {
+  const getStatusStyle = (status, activeRefundStatus) => {
+    if (activeRefundStatus === 'CHO_DUYET') {
+      return { bg: '#FEF3C7', color: '#B45309', label: 'Chờ duyệt hoàn tiền' };
+    }
+    if (activeRefundStatus === 'DA_DUYET') {
+      return { bg: '#DBEAFE', color: '#1E40AF', label: 'Đã duyệt hoàn tiền' };
+    }
+
     switch (status) {
       case 'CHO_XAC_NHAN': return { bg: '#FEF3C7', color: '#B45309', label: 'Chờ xác nhận' };
       case 'DANG_PHA_CHE': return { bg: '#DBEAFE', color: '#1E40AF', label: 'Đang pha chế' };
@@ -79,12 +125,13 @@ const HistoryTab = ({ onShowNoti }) => {
       case 'DA_THANH_TOAN': return { bg: '#F3E8FF', color: '#6B21A8', label: 'Đã thanh toán' };
       case 'HOAN_TAT': return { bg: '#D1FAE5', color: '#065F46', label: 'Hoàn tất' };
       case 'DA_HUY': return { bg: '#FEE2E2', color: '#991B1B', label: 'Đã hủy' };
+      case 'HOAN_TIEN': return { bg: '#FEE2E2', color: '#DC2626', label: 'Đã hoàn tiền' };
       default: return { bg: '#F1F5F9', color: '#475569', label: status };
     }
   };
 
   const filteredInvoices = invoices.filter(inv => {
-    const matchesSearch = inv.idHoaDon.toString().includes(searchQuery) || 
+    const matchesSearch = inv.idHoaDon.toString().includes(searchQuery) ||
       (inv.tenKhachHang && inv.tenKhachHang.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (inv.danhSachTenBan && inv.danhSachTenBan.join(', ').toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -103,7 +150,7 @@ const HistoryTab = ({ onShowNoti }) => {
   });
 
   const renderInvoiceRow = ({ item }) => {
-    const status = getStatusStyle(item.trangThai);
+    const status = getStatusStyle(item.trangThai, item.activeRefundStatus);
     const date = new Date(item.thoiGianTao);
     const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')} - ${date.getDate()}/${date.getMonth() + 1}`;
 
@@ -122,9 +169,9 @@ const HistoryTab = ({ onShowNoti }) => {
           <Text style={[styles.cellText, styles.priceText]}>{Number(item.tongThanhToan || 0).toLocaleString()}đ</Text>
         </View>
         <View style={{ width: 60, alignItems: 'flex-end' }}>
-           <View style={styles.actionIcon}>
-              <Text style={{color: '#8BA367', fontWeight: '900'}}>→</Text>
-           </View>
+          <View style={styles.actionIcon}>
+            <Text style={{ color: '#8BA367', fontWeight: '900' }}>→</Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -140,29 +187,29 @@ const HistoryTab = ({ onShowNoti }) => {
 
         <View style={styles.headerActions}>
           <View style={styles.searchBox}>
-            <Text style={{fontSize: 18}}>🔍</Text>
-            <TextInput 
-              style={styles.searchInput} 
-              placeholder="Tìm mã đơn, tên bàn, khách hàng..." 
+            <Text style={{ fontSize: 18 }}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm mã đơn, tên bàn, khách hàng..."
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
           <TouchableOpacity style={[styles.filterBtn, { width: 48, paddingHorizontal: 0, justifyContent: 'center' }]} onPress={() => setShowFilterModal(true)}>
-             <View style={{ gap: 3, alignItems: 'center' }}>
-                <View style={{ width: 16, height: 2, backgroundColor: '#475569', borderRadius: 1 }} />
-                <View style={{ width: 10, height: 2, backgroundColor: '#475569', borderRadius: 1, alignSelf: 'center' }} />
-                <View style={{ width: 4, height: 2, backgroundColor: '#475569', borderRadius: 1, alignSelf: 'center' }} />
-              </View>
+            <View style={{ gap: 3, alignItems: 'center' }}>
+              <View style={{ width: 16, height: 2, backgroundColor: '#475569', borderRadius: 1 }} />
+              <View style={{ width: 10, height: 2, backgroundColor: '#475569', borderRadius: 1, alignSelf: 'center' }} />
+              <View style={{ width: 4, height: 2, backgroundColor: '#475569', borderRadius: 1, alignSelf: 'center' }} />
+            </View>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.filterBtn, { width: 48, paddingHorizontal: 0, justifyContent: 'center' }]} onPress={onShowNoti}>
-             <Bell size={20} color="#FF9800" strokeWidth={1.5} />
-             <View style={{
-                position: 'absolute', top: 10, right: 10, width: 8, height: 8,
-                backgroundColor: '#EF4444', borderRadius: 4,
-                borderWidth: 1.5, borderColor: '#FFFFFF'
-             }} />
+            <Bell size={20} color="#FF9800" strokeWidth={1.5} />
+            <View style={{
+              position: 'absolute', top: 10, right: 10, width: 8, height: 8,
+              backgroundColor: '#EF4444', borderRadius: 4,
+              borderWidth: 1.5, borderColor: '#FFFFFF'
+            }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -181,10 +228,10 @@ const HistoryTab = ({ onShowNoti }) => {
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color="#8BA367" />
-            <Text style={{marginTop: 12, color: '#64748B'}}>Đang tải dữ liệu...</Text>
+            <Text style={{ marginTop: 12, color: '#64748B' }}>Đang tải dữ liệu...</Text>
           </View>
         ) : (
-          <FlatList 
+          <FlatList
             data={filteredInvoices}
             keyExtractor={item => item.idHoaDon.toString()}
             renderItem={renderInvoiceRow}
@@ -202,10 +249,10 @@ const HistoryTab = ({ onShowNoti }) => {
         )}
       </View>
 
-      <InvoiceHistoryModal 
-        isVisible={!!selectedInvoiceId} 
-        invoiceId={selectedInvoiceId} 
-        onClose={() => setSelectedInvoiceId(null)} 
+      <InvoiceHistoryModal
+        isVisible={!!selectedInvoiceId}
+        invoiceId={selectedInvoiceId}
+        onClose={() => setSelectedInvoiceId(null)}
       />
 
       <Modal visible={showFilterModal} transparent={true} animationType="fade">
